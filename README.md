@@ -12,7 +12,7 @@ A Python library for drawing customized maps from OpenStreetMap data. Create bea
 
 ## Installation
 ```bash
-pip install umap-maps
+pip install umap-osm
 ```
 
 For development:
