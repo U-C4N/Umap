@@ -16,6 +16,8 @@ umap.plot(
     dilate: Optional[float] = None,
     figsize: Tuple[int, int] = (12, 12),
     mode: str = "matplotlib",
+    use_cache: bool = True,
+    auto_optimize: bool = True,
     **kwargs
 ) -> Plot
 ```
@@ -30,6 +32,8 @@ umap.plot(
 - `dilate`: Dilation amount for perimeter
 - `figsize`: Figure size in inches
 - `mode`: Rendering mode ('matplotlib' or 'plotter')
+- `use_cache`: Read/write data from the local cache
+- `auto_optimize`: Optimize layer definitions based on radius
 
 #### Returns
 - `Plot` object containing the map figure and data

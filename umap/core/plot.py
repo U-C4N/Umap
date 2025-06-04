@@ -26,6 +26,8 @@ from shapely.geometry import (
 )
 from shapely.geometry.base import BaseGeometry
 from .fetch import get_gdfs
+from ..utils.cache import get_cache
+from ..utils.optimization import optimize_layer_config
 
 try:
     import vsketch
@@ -196,9 +198,16 @@ def plot(
     dilate: Optional[float] = None,
     figsize: Tuple[int, int] = (12, 12),
     mode: str = "matplotlib",
+    use_cache: bool = True,
+    auto_optimize: bool = True,
     **kwargs
 ) -> Plot:
-    """Draw a map from OpenStreetMap data."""
+    """Draw a map from OpenStreetMap data.
+
+    Args:
+        use_cache: Enable reading/writing from the local cache.
+        auto_optimize: Optimize layer configuration based on ``radius``.
+    """
     # Default minimalist style if no style provided
     if style is None:
         style = {
@@ -221,10 +230,23 @@ def plot(
         },
         'building': {'tags': {'building': True}}
     }
-    
+
+    fetch_layers = deepcopy(layers)
+    if auto_optimize and radius is not None:
+        fetch_layers = optimize_layer_config(fetch_layers, radius)
+
+    cache = get_cache() if use_cache else None
+    if cache:
+        cached = cache.get_cached_data(query, radius, fetch_layers)
+        if cached is not None:
+            gdfs = cached
+        else:
+            gdfs = get_gdfs(query, fetch_layers, radius, dilate)
+            cache.cache_data(query, radius, fetch_layers, gdfs)
+    else:
+        gdfs = get_gdfs(query, fetch_layers, radius, dilate)
+
     # Initialize matplotlib figure and axis
-    # Fetch geodataframes
-    gdfs = get_gdfs(query, layers, radius, dilate)
 
     if mode == "matplotlib":
         fig = plt.figure(figsize=figsize, dpi=300)

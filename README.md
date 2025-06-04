@@ -10,6 +10,7 @@ A powerful Python library for creating beautiful, customized maps from OpenStree
 - **🔧 Command Line Interface (CLI):** Create maps directly from your terminal.
 - **💾 Automatic Caching:** Speeds up repeated map generation for the same area.
 - **⚡ Auto Optimization:** Intelligently adjusts map details based on the requested radius.
+- Both features can be disabled via CLI flags `--no-cache` and `--no-optimize`.
 - **🎨 Enhanced Styles:** Includes `minimal`, `blueprint`, and `vintage` styles out-of-the-box.
 - **🔄 Batch Processing:** Generate multiple maps from a list of locations.
 - **🐍 Python API:** Full programmatic control for advanced customization.
@@ -47,6 +48,8 @@ python -m umap create --coords "40.66,29.28" --radius 4000 --style vintage --dpi
 ```bash
 python -m umap create --help  # See all options for single map
 python -m umap batch --help   # See all options for batch processing
+# Disable cache or optimization:
+python -m umap create --no-cache --no-optimize --coords "40.66,29.28" --radius 1000
 ```
 
 ## 📚 Python API Example

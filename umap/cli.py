@@ -31,6 +31,7 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             'dpi': 300,
             'format': 'png',
             'cache_enabled': True,
+            'optimization_enabled': True,
             'radius': 5000
         },
         'styles': {
@@ -93,6 +94,8 @@ def create_map(args):
     # Create plot
     radius = args.radius or config['default']['radius']
     dpi = args.dpi or config['default']['dpi']
+    cache_enabled = not args.no_cache and config['default'].get('cache_enabled', True)
+    optimize_enabled = not args.no_optimize and config['default'].get('optimization_enabled', True)
     
     print(f"Creating map for {location} with radius {radius}m...")
     start_time = time.time()
@@ -102,7 +105,9 @@ def create_map(args):
             location,
             radius=radius,
             style=style,
-            figsize=(12, 12)
+            figsize=(12, 12),
+            use_cache=cache_enabled,
+            auto_optimize=optimize_enabled,
         )
         
         if map_plot.fig and map_plot.ax:
@@ -171,6 +176,8 @@ def batch_process(args):
     style_name = args.style or config['default']['style']
     style = config['styles'].get(style_name, config['styles']['minimal'])
     dpi = args.dpi or config['default']['dpi']
+    cache_enabled = not args.no_cache and config['default'].get('cache_enabled', True)
+    optimize_enabled = not args.no_optimize and config['default'].get('optimization_enabled', True)
     
     print(f"Processing {len(locations)} locations...")
     
@@ -182,7 +189,9 @@ def batch_process(args):
                 loc['coords'],
                 radius=loc['radius'],
                 style=style,
-                figsize=(12, 12)
+                figsize=(12, 12),
+                use_cache=cache_enabled,
+                auto_optimize=optimize_enabled,
             )
             
             if map_plot.fig and map_plot.ax:
@@ -217,6 +226,8 @@ def main():
     create_parser.add_argument('--style', help='Style name (minimal, blueprint, vintage)')
     create_parser.add_argument('--output', help='Output file path')
     create_parser.add_argument('--dpi', type=int, help='DPI for output image (default: 300)')
+    create_parser.add_argument('--no-cache', action='store_true', help='Disable cache for this run')
+    create_parser.add_argument('--no-optimize', action='store_true', help='Disable automatic optimization')
     create_parser.add_argument('--config', help='Path to config file')
     
     # Batch command
@@ -225,6 +236,8 @@ def main():
     batch_parser.add_argument('--style', help='Style name for all maps')
     batch_parser.add_argument('--format', help='Output format (png, jpg)')
     batch_parser.add_argument('--dpi', type=int, help='DPI for output images')
+    batch_parser.add_argument('--no-cache', action='store_true', help='Disable cache for this run')
+    batch_parser.add_argument('--no-optimize', action='store_true', help='Disable automatic optimization')
     batch_parser.add_argument('--config', help='Path to config file')
     
     args = parser.parse_args()
