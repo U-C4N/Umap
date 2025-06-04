@@ -47,6 +47,8 @@ python -m umap create --coords "40.66,29.28" --radius 4000 --style vintage --dpi
 ```bash
 python -m umap create --help  # See all options for single map
 python -m umap batch --help   # See all options for batch processing
+# Increase verbosity with -v or -vv
+python -m umap create --coords "40.66,29.28" -v
 ```
 
 ## 📚 Python API Example

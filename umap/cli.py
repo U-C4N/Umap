@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 import yaml
 import time
+import logging
 from typing import Dict, List, Tuple, Optional
+
+logger = logging.getLogger(__name__)
 
 from .core.plot import plot
 from .utils.drawing import add_frame
@@ -65,7 +68,7 @@ def load_config(config_path: Optional[str] = None) -> Dict:
                 # Merge with defaults
                 default_config.update(user_config)
         except Exception as e:
-            print(f"Warning: Could not load config file: {e}")
+            logger.warning("Could not load config file: %s", e)
     
     return default_config
 
@@ -87,14 +90,14 @@ def create_map(args):
     if style_name in config['styles']:
         style = config['styles'][style_name]
     else:
-        print(f"Warning: Style '{style_name}' not found, using minimal")
+        logger.warning("Style '%s' not found, using minimal", style_name)
         style = config['styles']['minimal']
     
     # Create plot
     radius = args.radius or config['default']['radius']
     dpi = args.dpi or config['default']['dpi']
     
-    print(f"Creating map for {location} with radius {radius}m...")
+    logger.info("Creating map for %s with radius %sm...", location, radius)
     start_time = time.time()
     
     try:
@@ -120,13 +123,17 @@ def create_map(args):
             )
             
             end_time = time.time()
-            print(f"Map saved to {output_path} ({end_time - start_time:.2f}s)")
+            logger.info(
+                "Map saved to %s (%.2fs)",
+                output_path,
+                end_time - start_time,
+            )
             
         else:
-            print("Error: Could not create map")
+            logger.error("Could not create map")
             
     except Exception as e:
-        print(f"Error creating map: {e}")
+        logger.error("Error creating map: %s", e)
         sys.exit(1)
 
 
@@ -135,7 +142,7 @@ def batch_process(args):
     config = load_config(args.config)
     
     if not os.path.exists(args.file):
-        print(f"Error: File {args.file} not found")
+        logger.error("File %s not found", args.file)
         sys.exit(1)
     
     # Read locations file
@@ -159,12 +166,14 @@ def batch_process(args):
                         'radius': radius
                     })
                 else:
-                    print(f"Warning: Invalid format at line {line_num}: {line}")
+                    logger.warning(
+                        "Invalid format at line %s: %s", line_num, line
+                    )
             except ValueError as e:
-                print(f"Warning: Error parsing line {line_num}: {e}")
+                logger.warning("Error parsing line %s: %s", line_num, e)
     
     if not locations:
-        print("No valid locations found in file")
+        logger.error("No valid locations found in file")
         sys.exit(1)
     
     # Process each location
@@ -172,10 +181,12 @@ def batch_process(args):
     style = config['styles'].get(style_name, config['styles']['minimal'])
     dpi = args.dpi or config['default']['dpi']
     
-    print(f"Processing {len(locations)} locations...")
+    logger.info("Processing %s locations...", len(locations))
     
     for i, loc in enumerate(locations, 1):
-        print(f"[{i}/{len(locations)}] Creating map for {loc['name']}...")
+        logger.info(
+            "[%s/%s] Creating map for %s...", i, len(locations), loc["name"]
+        )
         
         try:
             map_plot = plot(
@@ -196,17 +207,26 @@ def batch_process(args):
                     facecolor='#fff',
                     pad_inches=0.5
                 )
-                print(f"  Saved: {output_path}")
+                logger.info("  Saved: %s", output_path)
             else:
-                print(f"  Error: Could not create map for {loc['name']}")
+                logger.error("  Could not create map for %s", loc["name"])
                 
         except Exception as e:
-            print(f"  Error processing {loc['name']}: {e}")
+            logger.error("  Error processing %s: %s", loc["name"], e)
 
 
 def main():
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(description='Umap - Create beautiful maps from OpenStreetMap data')
+    parser = argparse.ArgumentParser(
+        description='Umap - Create beautiful maps from OpenStreetMap data'
+    )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='count',
+        default=0,
+        help='Increase output verbosity (use -vv for debug)',
+    )
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
     # Create command
@@ -228,6 +248,13 @@ def main():
     batch_parser.add_argument('--config', help='Path to config file')
     
     args = parser.parse_args()
+
+    log_level = logging.WARNING
+    if args.verbose == 1:
+        log_level = logging.INFO
+    elif args.verbose >= 2:
+        log_level = logging.DEBUG
+    logging.basicConfig(level=log_level, format='%(message)s')
     
     if args.command == 'create':
         create_map(args)
