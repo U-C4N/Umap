@@ -14,7 +14,7 @@
 
 ### 1. Simple Installation
 ```bash
-pip install umap-maps
+pip install umap-osm
 ```
 
 ### 2. Development Installation
