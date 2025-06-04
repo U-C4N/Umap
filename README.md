@@ -1,4 +1,4 @@
-# Umap v2.0
+# Umap v3.0
 
 A powerful Python library for creating beautiful, customized maps from OpenStreetMap data. Now with **CLI support**, **automatic caching**, and **smart optimization**!
 
@@ -13,6 +13,12 @@ A powerful Python library for creating beautiful, customized maps from OpenStree
 - **🎨 Enhanced Styles:** Includes `minimal`, `blueprint`, and `vintage` styles out-of-the-box.
 - **🔄 Batch Processing:** Generate multiple maps from a list of locations.
 - **🐍 Python API:** Full programmatic control for advanced customization.
+
+## Umap v3 Highlights
+
+- **📣 Verbose Logging:** CLI commands now support `-v` and `-vv` for more detailed output.
+- **📦 PyPI Packaging:** `pyproject.toml` metadata enables easy installation via `pip`.
+- **🔖 Version Constant:** Access the library version with `umap.__version__`.
 
 ## Installation
 
@@ -120,4 +126,4 @@ MIT License
 
 ---
 
-**Umap v2.0** - Making beautiful maps easier than ever! 🗺️
+**Umap v3.0** - Making beautiful maps easier than ever! 🗺️
