@@ -1,48 +1,59 @@
 # Umap v3.0
 
-A powerful Python library for creating beautiful, customized maps from OpenStreetMap data. Now with **CLI support**, **automatic caching**, and **smart optimization**!
+A powerful Python library for creating beautiful, customized maps from OpenStreetMap data. Now with **simplified CLI**, **automatic caching**, and **smart optimization**!
 
 ![Yalova CLI Minimal](yalova_minimal.png)
 *Minimal style map of Yalova created with CLI*
 
 ## 🚀 Key Features
 
-- **🔧 Command Line Interface (CLI):** Create maps directly from your terminal.
-- **💾 Automatic Caching:** Speeds up repeated map generation for the same area.
-- **⚡ Auto Optimization:** Intelligently adjusts map details based on the requested radius.
-- **🎨 Enhanced Styles:** Includes `minimal`, `blueprint`, and `vintage` styles out-of-the-box.
-- **🔄 Batch Processing:** Generate multiple maps from a list of locations.
-- **🐍 Python API:** Full programmatic control for advanced customization.
+- **🔧 Super Simple CLI:** Just type `umap Istanbul` and get your map on desktop!
+- **🖥️ Desktop Output:** Maps automatically saved to your desktop
+- **💾 Automatic Caching:** Speeds up repeated map generation for the same area
+- **⚡ Auto Optimization:** Intelligently adjusts map details based on the requested radius
+- **🎨 Enhanced Styles:** Includes `minimal`, `blueprint`, and `vintage` styles out-of-the-box
+- **🔄 Batch Processing:** Generate multiple maps from a list of locations
+- **🐍 Python API:** Full programmatic control for advanced customization
 
 ## Umap v3 Highlights
 
-- **📣 Verbose Logging:** CLI commands now support `-v` and `-vv` for more detailed output.
-- **📦 PyPI Packaging:** `pyproject.toml` metadata enables easy installation via `pip`.
-- **🔖 Version Constant:** Access the library version with `umap.__version__`.
+- **✨ Streamlined CLI:** No complex subcommands - just `umap <city>` and done!
+- **📦 PyPI Packaging:** Easy installation and direct command access
+- **🔖 Version Constant:** Access the library version with `umap.__version__`
+- **🔇 Clean Output:** No verbose logging, just clear progress messages
 
 ## Installation
 
 ```bash
-# For users
+# Install from PyPI
 pip install umap-osm
 
 # For developers
 git clone https://github.com/U-C4N/Umap.git
 cd Umap
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ## 🔧 CLI Quick Start
 
+**Super simple - just name your location:**
+
 ```bash
-# Create a minimal map of Yalova (5km radius)
-python -m umap create --coords "40.66,29.28" --radius 5000 --style minimal --output yalova_minimal.png
+# After pip install, use direct commands
+umap Istanbul
+umap "New York"
+umap London
 
-# Create a blueprint style map of Yalova
-python -m umap create --address "Yalova, Turkey" --radius 3000 --style blueprint --output yalova_blueprint.png
+# Or without pip install
+python umap Istanbul
+python umap Ankara
+python umap "Los Angeles"
 
-# Create a vintage style map with higher DPI
-python -m umap create --coords "40.66,29.28" --radius 4000 --style vintage --dpi 600 --output yalova_vintage.png
+# With coordinates
+umap --coords "40.66,29.28"
+
+# Custom options
+umap Istanbul --style vintage --radius 10000
 ```
 
 ![Yalova CLI Blueprint](yalova_cli_test.png)
@@ -51,10 +62,34 @@ python -m umap create --coords "40.66,29.28" --radius 4000 --style vintage --dpi
 ### CLI Options
 
 ```bash
-python -m umap create --help  # See all options for single map
-python -m umap batch --help   # See all options for batch processing
-# Increase verbosity with -v or -vv
-python -m umap create --coords "40.66,29.28" -v
+umap --help              # See all options
+umap Istanbul --style blueprint --radius 8000
+umap "New York" --output "/path/to/my/map.png"
+umap --coords "40.66,29.28" --style vintage
+```
+
+**All maps are automatically saved to your Desktop unless you specify `--output`**
+
+### 🔧 Troubleshooting
+
+If `umap` command is not found after installation:
+
+**Windows:**
+```bash
+# Use Python module approach
+python -m umap Istanbul
+
+# Or add Python Scripts to PATH:
+# Add C:\Users\YourUser\AppData\Roaming\Python\Python3xx\Scripts to PATH
+```
+
+**macOS/Linux:**
+```bash
+# Use Python module approach  
+python -m umap Istanbul
+
+# Or check PATH includes pip install location
+pip show -v umap-osm
 ```
 
 ## 📚 Python API Example

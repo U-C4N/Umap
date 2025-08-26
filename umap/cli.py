@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 from .core.plot import plot
 from .utils.drawing import add_frame
+from .utils.styles import get_style, list_styles
 
 
 def parse_coordinates(coord_str: str) -> Tuple[float, float]:
@@ -35,29 +36,6 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             'format': 'png',
             'cache_enabled': True,
             'radius': 5000
-        },
-        'styles': {
-            'minimal': {
-                'perimeter': {'fill': False, 'lw': 0, 'zorder': 0},
-                'background': {'fc': '#fff', 'zorder': -1},
-                'streets': {'ec': '#000', 'lw': 0.5, 'zorder': 4},
-                'building': {'ec': '#000', 'fc': '#fff', 'lw': 0.5, 'zorder': 5},
-                'water': {'ec': '#000', 'fc': '#fff', 'lw': 0.5, 'zorder': 3}
-            },
-            'blueprint': {
-                'perimeter': {'fill': False, 'lw': 0, 'zorder': 0},
-                'background': {'fc': '#1e3a8a', 'zorder': -1},
-                'streets': {'ec': '#fff', 'lw': 0.8, 'zorder': 4},
-                'building': {'ec': '#fff', 'fc': 'none', 'lw': 0.6, 'zorder': 5},
-                'water': {'ec': '#3b82f6', 'fc': '#3b82f6', 'lw': 0.5, 'zorder': 3}
-            },
-            'vintage': {
-                'perimeter': {'fill': False, 'lw': 0, 'zorder': 0},
-                'background': {'fc': '#f5f5dc', 'zorder': -1},
-                'streets': {'ec': '#8b4513', 'lw': 0.6, 'zorder': 4},
-                'building': {'ec': '#654321', 'fc': '#deb887', 'lw': 0.4, 'zorder': 5},
-                'water': {'ec': '#4682b4', 'fc': '#87ceeb', 'lw': 0.5, 'zorder': 3}
-            }
         }
     }
     
@@ -87,11 +65,11 @@ def create_map(args):
     
     # Get style
     style_name = args.style or config['default']['style']
-    if style_name in config['styles']:
-        style = config['styles'][style_name]
-    else:
+    try:
+        style = get_style(style_name)
+    except KeyError:
         logger.warning("Style '%s' not found, using minimal", style_name)
-        style = config['styles']['minimal']
+        style = get_style('minimal')
     
     # Create plot
     radius = args.radius or config['default']['radius']
@@ -123,17 +101,13 @@ def create_map(args):
             )
             
             end_time = time.time()
-            logger.info(
-                "Map saved to %s (%.2fs)",
-                output_path,
-                end_time - start_time,
-            )
+            print(f"Map completed! Saved to: {output_path} ({end_time - start_time:.1f}s)")
             
         else:
-            logger.error("Could not create map")
+            print("Error: Could not create map")
             
     except Exception as e:
-        logger.error("Error creating map: %s", e)
+        print(f"Error creating map: {e}")
         sys.exit(1)
 
 
@@ -178,7 +152,11 @@ def batch_process(args):
     
     # Process each location
     style_name = args.style or config['default']['style']
-    style = config['styles'].get(style_name, config['styles']['minimal'])
+    try:
+        style = get_style(style_name)
+    except KeyError:
+        logger.warning("Style '%s' not found, using minimal", style_name)
+        style = get_style('minimal')
     dpi = args.dpi or config['default']['dpi']
     
     logger.info("Processing %s locations...", len(locations))
@@ -215,40 +193,143 @@ def batch_process(args):
             logger.error("  Error processing %s: %s", loc["name"], e)
 
 
+def get_desktop_path():
+    """Get the path to desktop directory."""
+    import platform
+    if platform.system() == "Windows":
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    else:
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    
+    # Create desktop directory if it doesn't exist
+    os.makedirs(desktop, exist_ok=True)
+    return desktop
+
+
+def create_simple_map(args):
+    """Create a single map with simplified arguments."""
+    config = load_config(args.config)
+    
+    # Parse location - handle both location name and coordinates
+    if args.coords:
+        location = parse_coordinates(args.coords)
+        location_name = f"coords_{args.coords.replace(',', '_')}"
+    elif args.location:
+        location = args.location
+        location_name = args.location.replace(" ", "_").replace(",", "_")
+    else:
+        raise ValueError("Either location name or coordinates must be provided")
+    
+    # Get style
+    style_name = args.style or config['default']['style']
+    try:
+        style = get_style(style_name)
+    except KeyError:
+        logger.warning("Style '%s' not found, using minimal", style_name)
+        style = get_style('minimal')
+    
+    # Create plot
+    radius = args.radius or config['default']['radius']
+    dpi = args.dpi or config['default']['dpi']
+    
+    print(f"Creating map for {location}...")
+    start_time = time.time()
+    
+    try:
+        map_plot = plot(
+            location,
+            radius=radius,
+            style=style,
+            figsize=(12, 12)
+        )
+        
+        if map_plot.fig and map_plot.ax:
+            # Add frame
+            add_frame(map_plot.ax)
+            
+            # Determine output path - default to Desktop
+            if args.output:
+                output_path = args.output
+            else:
+                desktop_path = get_desktop_path()
+                output_filename = f"{location_name}_map.{config['default']['format']}"
+                output_path = os.path.join(desktop_path, output_filename)
+            
+            map_plot.fig.savefig(
+                output_path,
+                dpi=dpi,
+                bbox_inches='tight',
+                facecolor='#fff',
+                pad_inches=0.5
+            )
+            
+            end_time = time.time()
+            print(f"Map completed! Saved to: {output_path} ({end_time - start_time:.1f}s)")
+            
+        else:
+            print("Error: Could not create map")
+            
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        sys.exit(1)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description='Umap - Create beautiful maps from OpenStreetMap data'
+        description='Umap - Create beautiful maps from OpenStreetMap data',
+        epilog='Examples:\n  umap Istanbul\n  umap "New York"\n  umap --coords "40.66,29.28"',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Simple address/city argument (positional)
+    parser.add_argument(
+        'location',
+        nargs='?',
+        help='City name or address to map (e.g., "Istanbul", "New York")'
+    )
+    
+    # Optional arguments
+    parser.add_argument(
+        '--coords',
+        help='Coordinates in lat,lon format (e.g., "40.66,29.28")'
+    )
+    parser.add_argument(
+        '--radius',
+        type=int,
+        default=5000,
+        help='Radius in meters (default: 5000)'
+    )
+    parser.add_argument(
+        '--style',
+        default='minimal',
+        help='Style name (minimal, blueprint, vintage, default: minimal)'
+    )
+    parser.add_argument(
+        '--output',
+        help='Output file path (default: Desktop/[location_name]_map.png)'
+    )
+    parser.add_argument(
+        '--dpi',
+        type=int,
+        default=300,
+        help='DPI for output image (default: 300)'
+    )
+    parser.add_argument(
+        '--config',
+        help='Path to config file'
     )
     parser.add_argument(
         '-v',
         '--verbose',
         action='count',
         default=0,
-        help='Increase output verbosity (use -vv for debug)',
+        help='Increase output verbosity (use -vv for debug)'
     )
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    
-    # Create command
-    create_parser = subparsers.add_parser('create', help='Create a single map')
-    create_parser.add_argument('--coords', help='Coordinates in lat,lon format (e.g., "40.66,29.28")')
-    create_parser.add_argument('--address', help='Address or place name')
-    create_parser.add_argument('--radius', type=int, help='Radius in meters (default: 5000)')
-    create_parser.add_argument('--style', help='Style name (minimal, blueprint, vintage)')
-    create_parser.add_argument('--output', help='Output file path')
-    create_parser.add_argument('--dpi', type=int, help='DPI for output image (default: 300)')
-    create_parser.add_argument('--config', help='Path to config file')
-    
-    # Batch command
-    batch_parser = subparsers.add_parser('batch', help='Process multiple locations')
-    batch_parser.add_argument('--file', required=True, help='File with locations (name,lat,lon,radius per line)')
-    batch_parser.add_argument('--style', help='Style name for all maps')
-    batch_parser.add_argument('--format', help='Output format (png, jpg)')
-    batch_parser.add_argument('--dpi', type=int, help='DPI for output images')
-    batch_parser.add_argument('--config', help='Path to config file')
     
     args = parser.parse_args()
 
+    # Set up logging
     log_level = logging.WARNING
     if args.verbose == 1:
         log_level = logging.INFO
@@ -256,13 +337,36 @@ def main():
         log_level = logging.DEBUG
     logging.basicConfig(level=log_level, format='%(message)s')
     
-    if args.command == 'create':
-        create_map(args)
-    elif args.command == 'batch':
-        batch_process(args)
-    else:
+    # Check for batch mode via special argument
+    if len(sys.argv) > 1 and sys.argv[1] == 'batch':
+        # Handle batch processing with a separate parser
+        batch_parser = argparse.ArgumentParser(
+            description='Batch process multiple locations'
+        )
+        batch_parser.add_argument('command', help='batch command')
+        batch_parser.add_argument('--file', required=True, help='File with locations (name,lat,lon,radius per line)')
+        batch_parser.add_argument('--style', help='Style name for all maps')
+        batch_parser.add_argument('--format', help='Output format (png, jpg)')
+        batch_parser.add_argument('--dpi', type=int, help='DPI for output images')
+        batch_parser.add_argument('--config', help='Path to config file')
+        
+        batch_args = batch_parser.parse_args()
+        batch_process(batch_args)
+        return
+    
+    # Handle simple location mapping (main use case)
+    if not args.location and not args.coords:
         parser.print_help()
+        print("\nError: Please provide a location name or coordinates.")
+        print("Examples:")
+        print("  umap Istanbul")
+        print("  umap \"New York\"")
+        print("  umap --coords \"40.66,29.28\"")
+        sys.exit(1)
+    
+    # Create map with simplified arguments
+    create_simple_map(args)
 
 
 if __name__ == '__main__':
-    main() 
+    main()

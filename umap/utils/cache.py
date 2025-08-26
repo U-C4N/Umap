@@ -69,7 +69,6 @@ class UmapCache:
         try:
             with open(cache_path, 'rb') as f:
                 cached_data = pickle.load(f)
-                print(f"Cache hit: {cache_key[:8]}...")
                 return cached_data
         except Exception as e:
             print(f"Cache read error: {e}")
@@ -95,7 +94,6 @@ class UmapCache:
         try:
             with open(cache_path, 'wb') as f:
                 pickle.dump(data, f)
-                print(f"Data cached: {cache_key[:8]}...")
         except Exception as e:
             print(f"Cache write error: {e}")
     

@@ -26,13 +26,13 @@ from shapely.geometry import (
 )
 from shapely.geometry.base import BaseGeometry
 from .fetch import get_gdfs
+from ..utils.styles import get_style
 
 try:
     import vsketch
 except ImportError:
-    warnings.warn(
-        'Install vsketch with "pip install git+https://github.com/abey79/vsketch@1.0.0" to enable pen plotter mode.'
-    )
+    # vsketch is optional for pen plotter mode
+    pass
 
 @dataclass
 class Plot:
@@ -196,17 +196,16 @@ def plot(
     dilate: Optional[float] = None,
     figsize: Tuple[int, int] = (12, 12),
     mode: str = "matplotlib",
+    use_cache: bool = True,
+    auto_optimize: bool = True,
     **kwargs
 ) -> Plot:
     """Draw a map from OpenStreetMap data."""
     # Default minimalist style if no style provided
     if style is None:
-        style = {
-            'perimeter': {'fill': False, 'lw': 0, 'zorder': 0},
-            'background': {'fc': '#fff', 'zorder': -1},
-            'streets': {'ec': '#000', 'lw': 0.5, 'zorder': 4},
-            'building': {'ec': '#000', 'fc': '#fff', 'lw': 0.5, 'zorder': 5}
-        }
+        style = get_style('minimal')
+    elif isinstance(style, str):
+        style = get_style(style)
     
     # Default layers if none provided
     layers = layers or {
@@ -224,7 +223,7 @@ def plot(
     
     # Initialize matplotlib figure and axis
     # Fetch geodataframes
-    gdfs = get_gdfs(query, layers, radius, dilate)
+    gdfs = get_gdfs(query, layers, radius, dilate, use_cache=use_cache, auto_optimize=auto_optimize)
 
     if mode == "matplotlib":
         fig = plt.figure(figsize=figsize, dpi=300)

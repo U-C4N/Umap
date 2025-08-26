@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "umap-osm"
-version = "2.0.0"
+version = "3.0.0"
 description = "Draw beautiful maps from OpenStreetMap with a simple Python API and CLI."
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "MIT"
 authors = [{name = "Umutcan Edizaslan"}]
 dependencies = [
     "geopandas",
@@ -20,5 +20,17 @@ dependencies = [
     "shapely"
 ]
 
+[tool.setuptools]
+packages = ["umap", "umap.core", "umap.utils"]
+
 [project.urls]
 Homepage = "https://github.com/U-C4N/Umap"
+
+[project.scripts]
+umap = "umap.cli:main"
+
+[project.optional-dependencies]
+dev = ["build", "twine", "pytest"]
+
+[tool.setuptools.package-data]
+umap = ["*.yaml", "*.yml"]

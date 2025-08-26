@@ -16,6 +16,16 @@ from geopandas import GeoDataFrame
 from shapely.affinity import rotate, scale
 from shapely.ops import unary_union
 from shapely.errors import ShapelyDeprecationWarning
+from ..utils.cache import get_cache
+from ..utils.optimization import optimize_layer_config, smart_filter_gdf
+
+def _transform_to_web_mercator(gdf):
+    """Transform GeoDataFrame to Web Mercator (EPSG:3857)."""
+    return gdf.to_crs(epsg=3857) if gdf.crs != 'EPSG:3857' else gdf
+
+def _transform_to_wgs84(gdf):
+    """Transform GeoDataFrame to WGS84 (EPSG:4326)."""
+    return gdf.to_crs(4326) if gdf.crs != 'EPSG:4326' else gdf
 
 def parse_query(query):
     """Parse query type (coordinates, OSMId, or address)."""
@@ -34,7 +44,7 @@ def get_boundary(query, radius, circle=False, rotation=0):
     point = query if parse_query(query) == "coordinates" else ox.geocode(query)
     # Create GeoDataFrame from point and project
     boundary = GeoDataFrame(geometry=[Point(point[::-1])], crs="EPSG:4326")
-    boundary = boundary.to_crs(epsg=3857)  # Project to Web Mercator
+    boundary = _transform_to_web_mercator(boundary)
 
     if circle:  # Circular shape
         # use .buffer() to expand point into circle
@@ -55,7 +65,7 @@ def get_boundary(query, radius, circle=False, rotation=0):
         )
 
     # Unproject
-    boundary = boundary.to_crs(4326)
+    boundary = _transform_to_wgs84(boundary)
     return boundary
 
 def get_perimeter(
@@ -86,15 +96,14 @@ def get_perimeter(
             )
 
     # Scale according to aspect ratio
-    perimeter = perimeter.to_crs(epsg=3857)  # Project to Web Mercator
+    perimeter = _transform_to_web_mercator(perimeter)
     perimeter.loc[0, "geometry"] = scale(perimeter.loc[0, "geometry"], aspect_ratio, 1)
-    perimeter = perimeter.to_crs(4326)
-
-    # Apply dilation
-    perimeter = perimeter.to_crs(epsg=3857)  # Project to Web Mercator
+    
+    # Apply dilation if needed
     if dilate is not None:
         perimeter.geometry = perimeter.geometry.buffer(dilate)
-    perimeter = perimeter.to_crs(4326)
+    
+    perimeter = _transform_to_wgs84(perimeter)
 
     return perimeter
 
@@ -111,7 +120,9 @@ def get_gdf(
     """Get a GeoDataFrame for a specific layer."""
     try:
         # Project and apply tolerance to perimeter
-        perimeter_with_tolerance = perimeter.to_crs(epsg=3857).buffer(perimeter_tolerance).to_crs(4326)
+        perimeter_projected = _transform_to_web_mercator(perimeter)
+        perimeter_with_tolerance = perimeter_projected.buffer(perimeter_tolerance)
+        perimeter_with_tolerance = _transform_to_wgs84(perimeter_with_tolerance)
         perimeter_with_tolerance = unary_union(perimeter_with_tolerance.geometry).buffer(0)
         
         # Get bounding box
@@ -161,8 +172,20 @@ def get_gdf(
 
     return gdf
 
-def get_gdfs(query, layers_dict, radius, dilate, rotation=0) -> dict:
+def get_gdfs(query, layers_dict, radius, dilate, rotation=0, use_cache=True, auto_optimize=True) -> dict:
     """Fetch GeoDataFrames given query and a dictionary of layers."""
+    cache = get_cache()
+    
+    # Apply optimization if enabled and radius is provided
+    if auto_optimize and radius:
+        layers_dict = optimize_layer_config(layers_dict, radius)
+    
+    # Check cache first if enabled
+    if use_cache:
+        cached_data = cache.get_cached_data(query, radius or 0, layers_dict)
+        if cached_data is not None:
+            return cached_data
+    
     perimeter_kwargs = {}
     if "perimeter" in layers_dict:
         perimeter_kwargs = deepcopy(layers_dict["perimeter"])
@@ -179,12 +202,19 @@ def get_gdfs(query, layers_dict, radius, dilate, rotation=0) -> dict:
 
     # Get other layers as GeoDataFrames
     gdfs = {"perimeter": perimeter}
-    gdfs.update(
-        {
-            layer: get_gdf(layer, perimeter, **kwargs)
-            for layer, kwargs in layers_dict.items()
-            if layer != "perimeter"
-        }
-    )
+    for layer, kwargs in layers_dict.items():
+        if layer != "perimeter":
+            gdf = get_gdf(layer, perimeter, **kwargs)
+            
+            # Apply smart filtering if optimization is enabled
+            if auto_optimize and radius and not gdf.empty:
+                optimization_config = kwargs.get('_optimization', {})
+                gdf = smart_filter_gdf(gdf, layer, radius, optimization_config)
+            
+            gdfs[layer] = gdf
+
+    # Cache the results if enabled
+    if use_cache:
+        cache.cache_data(query, radius or 0, layers_dict, gdfs)
 
     return gdfs
