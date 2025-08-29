@@ -1,8 +1,12 @@
-"""Caching system for Umap data."""
+"""Caching system for Umap data.
+
+Cache keys now encode layer configuration using JSON with sorted keys.
+Cache entries generated with previous versions will no longer be recognized."""
 import os
 import pickle
 import hashlib
 import time
+import json
 from pathlib import Path
 from typing import Dict, Optional, Any
 import geopandas as gp
@@ -34,7 +38,7 @@ class UmapCache:
             loc_str = str(location)
         
         # Create hash from parameters
-        key_data = f"{loc_str}_{radius}_{str(sorted(layers.items()))}"
+        key_data = f"{loc_str}_{radius}_{json.dumps(layers, sort_keys=True)}"
         return hashlib.md5(key_data.encode()).hexdigest()
     
     def _get_cache_path(self, cache_key: str) -> Path:
