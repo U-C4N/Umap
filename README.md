@@ -53,7 +53,7 @@ python umap "Los Angeles"
 umap --coords "40.66,29.28"
 
 # Custom options
-umap Istanbul --style vintage --radius 10000
+umap Istanbul --style vintage --radius 10000 --format pdf
 ```
 
 ![Yalova CLI Blueprint](yalova_cli_test.png)
@@ -63,9 +63,9 @@ umap Istanbul --style vintage --radius 10000
 
 ```bash
 umap --help              # See all options
-umap Istanbul --style blueprint --radius 8000
-umap "New York" --output "/path/to/my/map.png"
-umap --coords "40.66,29.28" --style vintage
+umap Istanbul --style blueprint --radius 8000 --format svg
+umap "New York" --output "/path/to/my/map.jpg" --format jpg
+umap --coords "40.66,29.28" --style vintage --format png
 ```
 
 **All maps are automatically saved to your Desktop unless you specify `--output`**

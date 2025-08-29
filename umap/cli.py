@@ -209,6 +209,9 @@ def get_desktop_path():
 def create_simple_map(args):
     """Create a single map with simplified arguments."""
     config = load_config(args.config)
+
+    # Determine output format
+    output_format = args.format or config['default']['format']
     
     # Parse location - handle both location name and coordinates
     if args.coords:
@@ -250,17 +253,20 @@ def create_simple_map(args):
             # Determine output path - default to Desktop
             if args.output:
                 output_path = args.output
+                if not os.path.splitext(output_path)[1]:
+                    output_path = f"{output_path}.{output_format}"
             else:
                 desktop_path = get_desktop_path()
-                output_filename = f"{location_name}_map.{config['default']['format']}"
+                output_filename = f"{location_name}_map.{output_format}"
                 output_path = os.path.join(desktop_path, output_filename)
-            
+
             map_plot.fig.savefig(
                 output_path,
                 dpi=dpi,
                 bbox_inches='tight',
                 facecolor='#fff',
-                pad_inches=0.5
+                pad_inches=0.5,
+                format=output_format
             )
             
             end_time = time.time()
@@ -308,6 +314,11 @@ def main():
     parser.add_argument(
         '--output',
         help='Output file path (default: Desktop/[location_name]_map.png)'
+    )
+    parser.add_argument(
+        '--format',
+        choices=['png', 'jpg', 'svg', 'pdf'],
+        help='Çıktı formatı'
     )
     parser.add_argument(
         '--dpi',

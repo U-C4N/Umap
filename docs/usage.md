@@ -2,6 +2,11 @@
 
 ## English
 
+### CLI Example
+```bash
+umap Istanbul --style vintage --format svg
+```
+
 ### Basic Usage
 ```python
 import umap
@@ -63,6 +68,11 @@ When no style is provided, Umap uses a minimalist black and white style:
 - Simple layer set (perimeter, streets, building)
 
 ## Türkçe
+
+### CLI Örneği
+```bash
+umap Istanbul --style vintage --format svg
+```
 
 ### Temel Kullanım
 ```python
