@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import osmnx as ox
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 from shapely.geometry import (
     box,
     Point,
@@ -202,15 +203,24 @@ def get_gdfs(query, layers_dict, radius, dilate, rotation=0, use_cache=True, aut
 
     # Get other layers as GeoDataFrames
     gdfs = {"perimeter": perimeter}
-    for layer, kwargs in layers_dict.items():
-        if layer != "perimeter":
-            gdf = get_gdf(layer, perimeter, **kwargs)
-            
+    futures = []
+    with ThreadPoolExecutor() as executor:
+        for layer, kwargs in layers_dict.items():
+            if layer != "perimeter":
+                futures.append((layer, kwargs, executor.submit(get_gdf, layer, perimeter, **kwargs)))
+
+        for layer, kwargs, future in futures:
+            try:
+                gdf = future.result()
+            except Exception as e:
+                print(f"Error fetching {layer}: {e}")
+                gdf = GeoDataFrame(geometry=[])
+
             # Apply smart filtering if optimization is enabled
             if auto_optimize and radius and not gdf.empty:
                 optimization_config = kwargs.get('_optimization', {})
                 gdf = smart_filter_gdf(gdf, layer, radius, optimization_config)
-            
+
             gdfs[layer] = gdf
 
     # Cache the results if enabled
