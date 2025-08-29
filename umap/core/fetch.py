@@ -16,6 +16,7 @@ from geopandas import GeoDataFrame
 from shapely.affinity import rotate, scale
 from shapely.ops import unary_union
 from shapely.errors import ShapelyDeprecationWarning
+from shapely.strtree import STRtree
 from ..utils.cache import get_cache
 from ..utils.optimization import optimize_layer_config, smart_filter_gdf
 
@@ -166,9 +167,15 @@ def get_gdf(
         print(f"Error processing perimeter for {layer}: {e}")
         gdf = GeoDataFrame(geometry=[])
 
-    # Intersect with perimeter
-    gdf.geometry = gdf.geometry.intersection(perimeter_with_tolerance)
-    gdf.drop(gdf[gdf.geometry.is_empty].index, inplace=True)
+    # Intersect with perimeter using a spatial index
+    if not gdf.empty:
+        tree = STRtree(gdf.geometry.values)
+        intersecting_idx = tree.query(perimeter_with_tolerance)
+        gdf = gdf.iloc[intersecting_idx].copy()
+
+        if not gdf.empty:
+            gdf.geometry = gdf.geometry.intersection(perimeter_with_tolerance)
+            gdf = gdf[~gdf.geometry.is_empty]
 
     return gdf
 
