@@ -15,6 +15,7 @@ import shapely.affinity
 from copy import deepcopy
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
+from matplotlib.collections import PatchCollection, LineCollection
 from shapely.geometry import (
     Point,
     LineString,
@@ -101,58 +102,57 @@ def plot_gdf(
 ) -> None:
     """Plot a GeoDataFrame layer."""
     if mode == "matplotlib" and ax is not None:
+        polygon_main = []
+        polygon_outline = []
+        polygon_colors = []
+        line_geoms = []
         for shape in gdf.geometry:
             if isinstance(shape, (Polygon, MultiPolygon)):
-                # Get fill color from palette if provided
                 fc = kwargs.get('fc')
                 if palette and not fc:
                     fc = np.random.choice(palette)
-                
-                # Get hatch color, defaulting to edge color
-                hatch_c = kwargs.get('hatch_c', kwargs.get('ec', '#2F3737'))
-                
-                # Create main patch with fill and hatching
-                ax.add_patch(
-                    PolygonPatch(
-                        shape,
-                        lw=0,  # No edge for main patch
-                        ec=hatch_c,  # Use hatch color for pattern
-                        fc=fc if fc else '#fff',
-                        hatch=kwargs.get('hatch', None),
-                        **{k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette']},
-                    )
-                )
-                
-                # Create outline patch
-                ax.add_patch(
-                    PolygonPatch(
-                        shape,
-                        fc='none',  # Transparent fill
-                        ec=kwargs.get('ec', '#2F3737'),
-                        lw=kwargs.get('lw', 0),
-                        **{k: v for k, v in kwargs.items() if k not in ['fc', 'ec', 'lw', 'hatch', 'hatch_c', 'palette']},
-                    )
-                )
-            elif isinstance(shape, (LineString, MultiLineString)):
-                if isinstance(shape, LineString):
-                    if ax is not None:
-                        ax.plot(
-                            *shape.xy,
-                            c=kwargs.get('ec', '#2F3737'),
-                            linewidth=kwargs.get('lw', 0.5),
-                            alpha=kwargs.get('alpha', 1),
-                            **{k: v for k, v in kwargs.items() if k in ["ls", "dashes", "zorder"]},
-                        )
-                else:
-                    for line in shape.geoms:
-                        if ax is not None:
-                            ax.plot(
-                                *line.xy,
-                                c=kwargs.get('ec', '#2F3737'),
-                                linewidth=kwargs.get('lw', 0.5),
-                                alpha=kwargs.get('alpha', 1),
-                                **{k: v for k, v in kwargs.items() if k in ["ls", "dashes", "zorder"]},
-                            )
+                polygon_colors.append(fc if fc else '#fff')
+                polygon_main.append(PolygonPatch(shape))
+                polygon_outline.append(PolygonPatch(shape))
+            elif isinstance(shape, LineString):
+                line_geoms.append(np.column_stack(shape.xy))
+            elif isinstance(shape, MultiLineString):
+                for line in shape.geoms:
+                    line_geoms.append(np.column_stack(line.xy))
+
+        if polygon_main:
+            hatch_c = kwargs.get('hatch_c', kwargs.get('ec', '#2F3737'))
+            main_collection = PatchCollection(
+                polygon_main,
+                facecolors=polygon_colors,
+                edgecolors=hatch_c,
+                linewidths=0,
+                hatch=kwargs.get('hatch', None),
+                **{k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette']},
+            )
+            ax.add_collection(main_collection)
+            outline_collection = PatchCollection(
+                polygon_outline,
+                facecolors='none',
+                edgecolors=kwargs.get('ec', '#2F3737'),
+                linewidths=kwargs.get('lw', 0),
+                **{k: v for k, v in kwargs.items() if k not in ['fc', 'ec', 'lw', 'hatch', 'hatch_c', 'palette']},
+            )
+            ax.add_collection(outline_collection)
+
+        if line_geoms:
+            line_collection = LineCollection(
+                line_geoms,
+                colors=kwargs.get('ec', '#2F3737'),
+                linewidths=kwargs.get('lw', 0.5),
+                alpha=kwargs.get('alpha', 1),
+                zorder=kwargs.get('zorder'),
+            )
+            if 'ls' in kwargs:
+                line_collection.set_linestyle(kwargs['ls'])
+            if 'dashes' in kwargs:
+                line_collection.set_dashes(kwargs['dashes'])
+            ax.add_collection(line_collection)
     elif mode == "plotter" and vsk:
         if kwargs.get("draw", True):
             vsk.stroke(kwargs.get("stroke", 1))
