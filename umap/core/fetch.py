@@ -131,7 +131,7 @@ def get_gdf(
         bbox = box(*perimeter_with_tolerance.bounds)
         
         # Fetch data based on layer type
-        if layer in ["streets", "railway", "waterway"]:
+        if layer in ["streets", "railway"]:
             try:
                 graph = ox.graph_from_polygon(
                     bbox,
@@ -151,6 +151,52 @@ def get_gdf(
                 )
             except Exception as e:
                 print(f"Error fetching coastline data: {e}")
+                gdf = GeoDataFrame(geometry=[])
+        elif layer == "waterway":
+            try:
+                # Fetch linear waterways (rivers, streams, canals, etc.)
+                gdf = ox.features_from_polygon(
+                    bbox,
+                    tags={
+                        "waterway": [
+                            "river",
+                            "stream",
+                            "canal",
+                            "drain",
+                            "ditch",
+                        ]
+                    },
+                )
+            except Exception as e:
+                print(f"Error fetching waterway data: {e}")
+                gdf = GeoDataFrame(geometry=[])
+        elif layer == "water":
+            try:
+                # Fetch water bodies (polygons)
+                gdf = ox.features_from_polygon(
+                    bbox,
+                    tags={
+                        "natural": ["water", "bay"],
+                        "water": True,
+                        "waterway": ["riverbank", "dock"],
+                        "landuse": ["reservoir"],
+                    },
+                )
+            except Exception as e:
+                print(f"Error fetching water data: {e}")
+                gdf = GeoDataFrame(geometry=[])
+        elif layer == "bridges":
+            try:
+                # Fetch bridge features
+                gdf = ox.features_from_polygon(
+                    bbox,
+                    tags={
+                        "bridge": True,
+                        "man_made": "bridge",
+                    },
+                )
+            except Exception as e:
+                print(f"Error fetching bridges data: {e}")
                 gdf = GeoDataFrame(geometry=[])
         else:
             try:

@@ -105,7 +105,8 @@ def plot_gdf(
         polygon_main = []
         polygon_outline = []
         polygon_colors = []
-        line_geoms = []
+
+        # Polygons
         for shape in gdf.geometry:
             if isinstance(shape, (Polygon, MultiPolygon)):
                 fc = kwargs.get('fc')
@@ -114,11 +115,6 @@ def plot_gdf(
                 polygon_colors.append(fc if fc else '#fff')
                 polygon_main.append(PolygonPatch(shape))
                 polygon_outline.append(PolygonPatch(shape))
-            elif isinstance(shape, LineString):
-                line_geoms.append(np.column_stack(shape.xy))
-            elif isinstance(shape, MultiLineString):
-                for line in shape.geoms:
-                    line_geoms.append(np.column_stack(line.xy))
 
         if polygon_main:
             hatch_c = kwargs.get('hatch_c', kwargs.get('ec', '#2F3737'))
@@ -128,7 +124,7 @@ def plot_gdf(
                 edgecolors=hatch_c,
                 linewidths=0,
                 hatch=kwargs.get('hatch', None),
-                **{k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette']},
+                **{k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette', 'fill']},
             )
             ax.add_collection(main_collection)
             outline_collection = PatchCollection(
@@ -136,23 +132,61 @@ def plot_gdf(
                 facecolors='none',
                 edgecolors=kwargs.get('ec', '#2F3737'),
                 linewidths=kwargs.get('lw', 0),
-                **{k: v for k, v in kwargs.items() if k not in ['fc', 'ec', 'lw', 'hatch', 'hatch_c', 'palette']},
+                **{k: v for k, v in kwargs.items() if k not in ['fc', 'ec', 'lw', 'hatch', 'hatch_c', 'palette', 'fill']},
             )
             ax.add_collection(outline_collection)
 
-        if line_geoms:
-            line_collection = LineCollection(
-                line_geoms,
-                colors=kwargs.get('ec', '#2F3737'),
-                linewidths=kwargs.get('lw', 0.5),
-                alpha=kwargs.get('alpha', 1),
-                zorder=kwargs.get('zorder'),
-            )
-            if 'ls' in kwargs:
-                line_collection.set_linestyle(kwargs['ls'])
-            if 'dashes' in kwargs:
-                line_collection.set_dashes(kwargs['dashes'])
-            ax.add_collection(line_collection)
+        # Lines with optional width mapping and casing (mainly for streets)
+        if any(isinstance(geom, (LineString, MultiLineString)) for geom in gdf.geometry):
+            groups: Dict[float, List[np.ndarray]] = {}
+
+            def get_width_for_row(row) -> float:
+                if isinstance(width, dict) and layer == 'streets':
+                    highway = getattr(row, 'highway', None)
+                    if isinstance(highway, list) and highway:
+                        highway = highway[0]
+                    if isinstance(highway, str) and highway in width:
+                        return float(width[highway])
+                    return float(kwargs.get('lw', 0.6))
+                elif isinstance(width, (int, float)):
+                    return float(width)
+                return float(kwargs.get('lw', 0.6))
+
+            for row in gdf.itertuples(index=False):
+                geom = row.geometry
+                current_width = get_width_for_row(row)
+                if isinstance(geom, LineString):
+                    groups.setdefault(current_width, []).append(np.column_stack(geom.xy))
+                elif isinstance(geom, MultiLineString):
+                    for line in geom.geoms:
+                        groups.setdefault(current_width, []).append(np.column_stack(line.xy))
+
+            # Draw casing first if requested
+            if 'casing_ec' in kwargs and 'casing_scale' in kwargs:
+                for lw_value, geoms in groups.items():
+                    casing = LineCollection(
+                        geoms,
+                        colors=kwargs.get('casing_ec'),
+                        linewidths=lw_value * float(kwargs.get('casing_scale', 2.0)),
+                        alpha=float(kwargs.get('casing_alpha', 1.0)),
+                        zorder=max(kwargs.get('zorder', 3) - 0.1, 0),
+                    )
+                    ax.add_collection(casing)
+
+            # Main stroke
+            for lw_value, geoms in groups.items():
+                line_collection = LineCollection(
+                    geoms,
+                    colors=kwargs.get('ec', '#2F3737'),
+                    linewidths=lw_value,
+                    alpha=kwargs.get('alpha', 1),
+                    zorder=kwargs.get('zorder'),
+                )
+                if 'ls' in kwargs:
+                    line_collection.set_linestyle(kwargs['ls'])
+                if 'dashes' in kwargs:
+                    line_collection.set_dashes(kwargs['dashes'])
+                ax.add_collection(line_collection)
     elif mode == "plotter" and vsk:
         if kwargs.get("draw", True):
             vsk.stroke(kwargs.get("stroke", 1))
@@ -210,14 +244,19 @@ def plot(
     # Default layers if none provided
     layers = layers or {
         'perimeter': {},
+        'water': {},
+        'waterway': {},
         'streets': {
             'width': {
-                'primary': 4,
-                'secondary': 3,
-                'tertiary': 2,
-                'residential': 2
+                'motorway': 4.5,
+                'trunk': 4,
+                'primary': 3.2,
+                'secondary': 2.4,
+                'tertiary': 1.8,
+                'residential': 1.4
             }
         },
+        'bridges': {},
         'building': {'tags': {'building': True}}
     }
     
