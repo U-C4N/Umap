@@ -42,6 +42,13 @@ if plot.fig:
     plot.fig.savefig('map.png', dpi=300, bbox_inches='tight')
 ```
 
+## New Update
+
+- CLI now respects YAML config defaults (radius, style, format, cache) instead of overriding them
+- `plot` accepts shared `fig`/`ax`, so `multiplot` truly renders on a single canvas
+- Background style dictionaries stay intact across runs, giving consistent layering
+- Legend label for 'K\u00f6pr\u00fcler' uses ASCII escapes to avoid encoding glitches
+
 ## Styles
 
 - `minimal`: Clean black & white

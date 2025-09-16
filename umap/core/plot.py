@@ -205,15 +205,17 @@ def create_background(
     style: Dict[str, dict]
 ) -> Tuple[BaseGeometry, float, float, float, float, float, float]:
     """Create background layer and get bounds."""
-    background_pad = style.get("background", {}).get("pad", 1.1)
+    background_style = style.get("background", {})
+    background_pad = background_style.get("pad", 1.1)
     background = shapely.affinity.scale(
         box(*shapely.ops.unary_union(gdfs["perimeter"].geometry).bounds),
         background_pad,
         background_pad,
     )
     
-    if "background" in style and "dilate" in style["background"]:
-        background = background.buffer(style["background"].pop("dilate"))
+    dilate = background_style.get("dilate")
+    if dilate is not None:
+        background = background.buffer(dilate)
     
     xmin, ymin, xmax, ymax = background.bounds
     dx, dy = xmax - xmin, ymax - ymin
@@ -232,6 +234,8 @@ def plot(
     mode: str = "matplotlib",
     use_cache: bool = True,
     auto_optimize: bool = True,
+    fig: Optional[matplotlib.figure.Figure] = None,
+    ax: Optional[matplotlib.axes.Axes] = None,
     **kwargs
 ) -> Plot:
     """Draw a map from OpenStreetMap data."""
@@ -265,8 +269,11 @@ def plot(
     gdfs = get_gdfs(query, layers, radius, dilate, use_cache=use_cache, auto_optimize=auto_optimize)
 
     if mode == "matplotlib":
-        fig = plt.figure(figsize=figsize, dpi=300)
-        ax = plt.subplot(111, aspect="equal")
+        if ax is None:
+            fig = fig or plt.figure(figsize=figsize, dpi=300)
+            ax = fig.add_subplot(111, aspect="equal")
+        else:
+            fig = fig or ax.figure
     else:
         # For plotter mode, we don't need matplotlib objects
         return Plot(gdfs, None, None, None)
@@ -287,12 +294,14 @@ def plot(
                 )
         
         # Draw background
-        if "background" in style:
-            zorder = style["background"].pop("zorder", -1)
+        background_style = style.get("background", {})
+        if background_style:
+            zorder = background_style.get("zorder", -1)
+            background_kwargs = {k: v for k, v in background_style.items() if k not in ("dilate", "zorder")}
             ax.add_patch(
                 PolygonPatch(
                     background,
-                    **{k: v for k, v in style["background"].items() if k != "dilate"},
+                    **background_kwargs,
                     zorder=zorder,
                 )
             )
@@ -307,7 +316,7 @@ def plot(
 
 def multiplot(*subplots, figsize=(12, 12), **kwargs):
     """Draw multiple maps on the same canvas."""
-    fig = plt.figure(figsize=figsize)
+    fig = plt.figure(figsize=figsize, dpi=300)
     ax = plt.subplot(111, aspect="equal")
     
     mode = "plotter" if kwargs.get("plotter") else "matplotlib"
@@ -315,6 +324,7 @@ def multiplot(*subplots, figsize=(12, 12), **kwargs):
     plots = [
         plot(
             subplot.query,
+            fig=fig,
             ax=ax,
             mode=mode,
             **{**subplot.kwargs, **kwargs}

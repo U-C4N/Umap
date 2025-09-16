@@ -62,7 +62,7 @@ def add_legend_simple(ax, style: dict) -> None:
     if 'streets' in style:
         handles.append(mlines.Line2D([], [], color=style['streets'].get('ec', '#000'), lw=2, label='Yollar'))
     if 'bridges' in style:
-        handles.append(mlines.Line2D([], [], color=style['bridges'].get('ec', '#b00'), lw=2, label='Köprüler'))
+        handles.append(mlines.Line2D([], [], color=style['bridges'].get('ec', '#b00'), lw=2, label='K\u00f6pr\u00fcler'))
     if 'water' in style:
         handles.append(mpatches.Patch(facecolor=style['water'].get('fc', '#aaf'), edgecolor=style['water'].get('ec', '#55f'), label='Su'))
     if 'building' in style:

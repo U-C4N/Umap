@@ -57,9 +57,10 @@ def load_config(config_path: Optional[str] = None) -> Dict:
 def create_simple_map(args):
     """Create a single map with simplified arguments."""
     config = load_config(None)
+    defaults = config.get('default', {})
 
     # Determine output format
-    output_format = args.format or config['default']['format']
+    output_format = args.format or defaults.get('format', 'jpg')
     
     # Parse location - handle both location name and coordinates
     if args.coords:
@@ -72,7 +73,7 @@ def create_simple_map(args):
         raise ValueError("Either location name or coordinates must be provided")
     
     # Get style - check for style shortcuts first
-    style_name = args.style or config['default']['style']
+    style_name = args.style or defaults.get('style', 'minimal')
     
     # Handle style shortcuts
     if args.blueprint:
@@ -88,8 +89,9 @@ def create_simple_map(args):
         style = get_style('minimal')
     
     # Create plot
-    radius = args.radius or config['default']['radius']
-    dpi = config['default']['dpi']
+    radius = args.radius if args.radius is not None else defaults.get('radius', 5000)
+    dpi = defaults.get('dpi', 300)
+    use_cache = defaults.get('cache_enabled', True)
     
     print(f"Creating map for {location}...")
     start_time = time.time()
@@ -99,7 +101,8 @@ def create_simple_map(args):
             location,
             radius=radius,
             style=style,
-            figsize=(12, 12)
+            figsize=(12, 12),
+            use_cache=use_cache
         )
         
         if map_plot.fig and map_plot.ax:
@@ -163,13 +166,13 @@ def main():
     parser.add_argument(
         '--radius',
         type=int,
-        default=5000,
-        help='Radius in meters (default: 5000)'
+        default=None,
+        help='Radius in meters (default: config or 5000)'
     )
     parser.add_argument(
         '--style',
-        default='minimal',
-        help='Style: minimal, blueprint, vintage'
+        default=None,
+        help='Style: minimal, blueprint, vintage (default: config or minimal)'
     )
     parser.add_argument(
         '--blueprint',
