@@ -138,7 +138,12 @@ def create_simple_map(args):
         else:
             print("Error: Could not create map")
             
+    except (ConnectionError, TimeoutError) as e:
+        logger.error("Network error creating map: %s", e)
+        print(f"Error: Network issue - {e}")
+        sys.exit(1)
     except Exception as e:
+        logger.error("Error creating map: %s", e)
         print(f"Error creating map: {e}")
         sys.exit(1)
 

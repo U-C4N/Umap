@@ -135,3 +135,7 @@ cache/
 *.pdf
 *.svg
 .umap_cache/
+
+# Keep example images for README
+!examples/*.png
+!examples/*.jpg

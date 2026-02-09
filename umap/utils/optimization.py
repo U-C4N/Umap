@@ -1,6 +1,35 @@
 """Optimization utilities for Umap."""
+import logging
 from typing import Dict, Any, List
 import geopandas as gp
+
+logger = logging.getLogger(__name__)
+
+
+def _compute_area_m2(gdf: gp.GeoDataFrame) -> gp.pd.Series:
+    """Compute geometry area in square meters using Web Mercator projection.
+    
+    Falls back to raw CRS area if projection fails.
+    """
+    try:
+        if gdf.crs and gdf.crs.to_epsg() != 3857:
+            return gdf.to_crs(epsg=3857).geometry.area
+        return gdf.geometry.area
+    except Exception:
+        return gdf.geometry.area
+
+
+def _compute_length_m(gdf: gp.GeoDataFrame) -> gp.pd.Series:
+    """Compute geometry length in meters using Web Mercator projection.
+    
+    Falls back to raw CRS length if projection fails.
+    """
+    try:
+        if gdf.crs and gdf.crs.to_epsg() != 3857:
+            return gdf.to_crs(epsg=3857).geometry.length
+        return gdf.geometry.length
+    except Exception:
+        return gdf.geometry.length
 
 
 def auto_optimize_layers(radius: float) -> Dict[str, Any]:
@@ -77,12 +106,7 @@ def smart_filter_gdf(gdf: gp.GeoDataFrame, layer_type: str, radius: float, optim
     if layer_type == 'building':
         # Filter buildings by area (in square meters)
         min_area = optimization_config.get('min_building_area', 50)
-        try:
-            projected = filtered_gdf.to_crs(epsg=3857)
-            filtered_gdf['area_m2'] = projected.geometry.area
-        except Exception:
-            # Fallback without CRS; may be inaccurate
-            filtered_gdf['area_m2'] = filtered_gdf.geometry.area
+        filtered_gdf['area_m2'] = _compute_area_m2(filtered_gdf)
         filtered_gdf = filtered_gdf[filtered_gdf['area_m2'] >= min_area]
         
         # For very large areas, keep only important buildings
@@ -108,14 +132,9 @@ def smart_filter_gdf(gdf: gp.GeoDataFrame, layer_type: str, radius: float, optim
                 filtered_gdf = filtered_gdf[~filtered_gdf['highway'].isin(exclude_types)]
     
     elif layer_type == 'water':
-        # Filter water features
+        # Filter water features - only keep major water bodies
         if not optimization_config.get('include_minor_water', True):
-            # Only keep major water bodies (area in square meters)
-            try:
-                projected = filtered_gdf.to_crs(epsg=3857)
-                filtered_gdf['area_m2'] = projected.geometry.area
-            except Exception:
-                filtered_gdf['area_m2'] = filtered_gdf.geometry.area
+            filtered_gdf['area_m2'] = _compute_area_m2(filtered_gdf)
             filtered_gdf = filtered_gdf[filtered_gdf['area_m2'] >= 1000]
     
     return filtered_gdf
@@ -172,28 +191,22 @@ def get_processing_stats(gdfs: Dict[str, gp.GeoDataFrame]) -> Dict[str, Any]:
         
         # Add area statistics for polygon layers
         if not gdf.empty and gdf.geometry.iloc[0].geom_type in ['Polygon', 'MultiPolygon']:
-            try:
-                areas = gdf.to_crs(epsg=3857).geometry.area
-            except Exception:
-                areas = gdf.geometry.area
+            areas = _compute_area_m2(gdf)
             layer_stats.update({
-                'total_area': areas.sum(),  # square meters
-                'avg_area': areas.mean(),   # square meters
-                'min_area': areas.min(),    # square meters
-                'max_area': areas.max()     # square meters
+                'total_area': areas.sum(),
+                'avg_area': areas.mean(),
+                'min_area': areas.min(),
+                'max_area': areas.max()
             })
         
         # Add length statistics for line layers
         elif not gdf.empty and gdf.geometry.iloc[0].geom_type in ['LineString', 'MultiLineString']:
-            try:
-                lengths = gdf.to_crs(epsg=3857).geometry.length
-            except Exception:
-                lengths = gdf.geometry.length
+            lengths = _compute_length_m(gdf)
             layer_stats.update({
-                'total_length': lengths.sum(),  # meters
-                'avg_length': lengths.mean(),   # meters
-                'min_length': lengths.min(),    # meters
-                'max_length': lengths.max()     # meters
+                'total_length': lengths.sum(),
+                'avg_length': lengths.mean(),
+                'min_length': lengths.min(),
+                'max_length': lengths.max()
             })
         
         stats[layer_name] = layer_stats
@@ -248,10 +261,7 @@ def check_data_quality(gdfs: Dict[str, gp.GeoDataFrame]) -> Dict[str, Any]:
             
             # Check for very small features that might be noise
             if gdf.geometry.iloc[0].geom_type in ['Polygon', 'MultiPolygon']:
-                try:
-                    areas = gdf.to_crs(epsg=3857).geometry.area
-                except Exception:
-                    areas = gdf.geometry.area
+                areas = _compute_area_m2(gdf)
                 very_small = (areas < 1).sum()
                 if very_small > len(gdf) * 0.1:  # More than 10% are very small
                     layer_report['issues'].append(f'{very_small} very small features (possible noise)')

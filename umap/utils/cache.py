@@ -7,9 +7,12 @@ import pickle
 import hashlib
 import time
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Any
 import geopandas as gp
+
+logger = logging.getLogger(__name__)
 
 
 class UmapCache:
@@ -75,7 +78,7 @@ class UmapCache:
                 cached_data = pickle.load(f)
                 return cached_data
         except Exception as e:
-            print(f"Cache read error: {e}")
+            logger.warning("Cache read error: %s", e)
             # Remove corrupted cache file
             try:
                 cache_path.unlink()
@@ -99,7 +102,7 @@ class UmapCache:
             with open(cache_path, 'wb') as f:
                 pickle.dump(data, f)
         except Exception as e:
-            print(f"Cache write error: {e}")
+            logger.warning("Cache write error: %s", e)
     
     def clear_cache(self, older_than_days: Optional[int] = None) -> int:
         """Clear cache files.
@@ -123,7 +126,7 @@ class UmapCache:
                     cache_file.unlink()
                     removed_count += 1
             except Exception as e:
-                print(f"Error removing cache file {cache_file}: {e}")
+                logger.warning("Error removing cache file %s: %s", cache_file, e)
         
         return removed_count
     

@@ -1,6 +1,6 @@
 """OpenStreetMap data fetching functionality."""
 import re
-import warnings
+import logging
 import numpy as np
 import osmnx as ox
 from copy import deepcopy
@@ -16,10 +16,11 @@ from shapely.geometry import (
 from geopandas import GeoDataFrame
 from shapely.affinity import rotate, scale
 from shapely.ops import unary_union
-from shapely.errors import ShapelyDeprecationWarning
 from shapely.strtree import STRtree
 from ..utils.cache import get_cache
 from ..utils.optimization import optimize_layer_config, smart_filter_gdf
+
+logger = logging.getLogger(__name__)
 
 def _transform_to_web_mercator(gdf):
     """Transform GeoDataFrame to Web Mercator (EPSG:3857)."""
@@ -140,8 +141,11 @@ def get_gdf(
                     truncate_by_edge=True,
                 )
                 gdf = ox.graph_to_gdfs(graph, nodes=False)
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning("Network error fetching %s data: %s", layer, e)
+                gdf = GeoDataFrame(geometry=[])
             except Exception as e:
-                print(f"Error fetching {layer} data: {e}")
+                logger.warning("Error fetching %s data: %s", layer, e)
                 gdf = GeoDataFrame(geometry=[])
         elif layer == "coastline":
             try:
@@ -150,7 +154,7 @@ def get_gdf(
                     bbox, tags={"natural": "coastline"}
                 )
             except Exception as e:
-                print(f"Error fetching coastline data: {e}")
+                logger.warning("Error fetching coastline data: %s", e)
                 gdf = GeoDataFrame(geometry=[])
         elif layer == "waterway":
             try:
@@ -168,22 +172,24 @@ def get_gdf(
                     },
                 )
             except Exception as e:
-                print(f"Error fetching waterway data: {e}")
+                logger.warning("Error fetching waterway data: %s", e)
                 gdf = GeoDataFrame(geometry=[])
         elif layer == "water":
             try:
-                # Fetch water bodies (polygons)
+                # Fetch water bodies including seas, bays, harbours, etc.
                 gdf = ox.features_from_polygon(
                     bbox,
                     tags={
-                        "natural": ["water", "bay"],
+                        "natural": ["water", "bay", "strait", "wetland"],
                         "water": True,
                         "waterway": ["riverbank", "dock"],
-                        "landuse": ["reservoir"],
+                        "landuse": ["reservoir", "basin"],
+                        "place": ["sea", "ocean"],
+                        "harbour": True,
                     },
                 )
             except Exception as e:
-                print(f"Error fetching water data: {e}")
+                logger.warning("Error fetching water data: %s", e)
                 gdf = GeoDataFrame(geometry=[])
         elif layer == "bridges":
             try:
@@ -196,31 +202,38 @@ def get_gdf(
                     },
                 )
             except Exception as e:
-                print(f"Error fetching bridges data: {e}")
+                logger.warning("Error fetching bridges data: %s", e)
                 gdf = GeoDataFrame(geometry=[])
         else:
             try:
                 if osmid is None:
                     # Fetch geometries from OSM
                     gdf = ox.features_from_polygon(
-                        bbox, tags={tags: True} if type(tags) == str else tags
+                        bbox, tags={tags: True} if isinstance(tags, str) else tags
                     )
                 else:
                     gdf = ox.geocode_to_gdf(osmid, by_osmid=True)
             except Exception as e:
-                print(f"Error fetching {layer} data: {e}")
+                logger.warning("Error fetching %s data: %s", layer, e)
                 gdf = GeoDataFrame(geometry=[])
     except Exception as e:
-        print(f"Error processing perimeter for {layer}: {e}")
+        logger.warning("Error processing perimeter for %s: %s", layer, e)
         gdf = GeoDataFrame(geometry=[])
+
+    # Fix invalid geometries before spatial operations
+    if not gdf.empty:
+        invalid_mask = ~gdf.geometry.is_valid
+        if invalid_mask.any():
+            gdf.loc[invalid_mask, 'geometry'] = gdf.loc[invalid_mask].geometry.buffer(0)
 
     # Intersect with perimeter using a spatial index
     if not gdf.empty:
         tree = STRtree(gdf.geometry.values)
         intersecting_idx = tree.query(perimeter_with_tolerance)
-        gdf = gdf.iloc[intersecting_idx].copy()
+        gdf = gdf.iloc[intersecting_idx]
 
         if not gdf.empty:
+            gdf = gdf.copy()
             gdf.geometry = gdf.geometry.intersection(perimeter_with_tolerance)
             gdf = gdf[~gdf.geometry.is_empty]
 
@@ -257,7 +270,10 @@ def get_gdfs(query, layers_dict, radius, dilate, rotation=0, use_cache=True, aut
     # Get other layers as GeoDataFrames
     gdfs = {"perimeter": perimeter}
     futures = []
-    with ThreadPoolExecutor() as executor:
+    # Limit thread count to avoid overloading the OSM API
+    layer_count = sum(1 for k in layers_dict if k != "perimeter")
+    max_workers = min(layer_count, 6)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for layer, kwargs in layers_dict.items():
             if layer != "perimeter":
                 futures.append((layer, kwargs, executor.submit(get_gdf, layer, perimeter, **kwargs)))
@@ -266,7 +282,7 @@ def get_gdfs(query, layers_dict, radius, dilate, rotation=0, use_cache=True, aut
             try:
                 gdf = future.result()
             except Exception as e:
-                print(f"Error fetching {layer}: {e}")
+                logger.warning("Error fetching %s: %s", layer, e)
                 gdf = GeoDataFrame(geometry=[])
 
             # Apply smart filtering if optimization is enabled

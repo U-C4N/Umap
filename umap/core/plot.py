@@ -1,8 +1,5 @@
 """Core plotting functionality."""
-import os
-import json
-import pathlib
-import warnings
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
@@ -12,7 +9,6 @@ import matplotlib.axes
 import geopandas as gp
 import shapely.ops
 import shapely.affinity
-from copy import deepcopy
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.collections import PatchCollection, LineCollection
@@ -28,6 +24,8 @@ from shapely.geometry import (
 from shapely.geometry.base import BaseGeometry
 from .fetch import get_gdfs
 from ..utils.styles import get_style
+
+logger = logging.getLogger(__name__)
 
 try:
     import vsketch
@@ -98,43 +96,52 @@ def plot_gdf(
     vsk=None,
     palette: Optional[List[str]] = None,
     width: Optional[Union[dict, float]] = None,
+    clip_patch: Optional[PathPatch] = None,
     **kwargs,
 ) -> None:
     """Plot a GeoDataFrame layer."""
     if mode == "matplotlib" and ax is not None:
-        polygon_main = []
-        polygon_outline = []
+        polygon_patches = []
         polygon_colors = []
 
-        # Polygons
+        # Build polygon patches in a single pass
         for shape in gdf.geometry:
             if isinstance(shape, (Polygon, MultiPolygon)):
                 fc = kwargs.get('fc')
                 if palette and not fc:
                     fc = np.random.choice(palette)
                 polygon_colors.append(fc if fc else '#fff')
-                polygon_main.append(PolygonPatch(shape))
-                polygon_outline.append(PolygonPatch(shape))
+                polygon_patches.append(PolygonPatch(shape))
 
-        if polygon_main:
+        if polygon_patches:
+            # Extra kwargs excluding known polygon-specific keys
+            extra_kw = {k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette', 'fill']}
             hatch_c = kwargs.get('hatch_c', kwargs.get('ec', '#2F3737'))
+            # Fill collection with hatch support
             main_collection = PatchCollection(
-                polygon_main,
+                polygon_patches,
                 facecolors=polygon_colors,
                 edgecolors=hatch_c,
                 linewidths=0,
                 hatch=kwargs.get('hatch', None),
-                **{k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette', 'fill']},
+                **extra_kw,
             )
             ax.add_collection(main_collection)
-            outline_collection = PatchCollection(
-                polygon_outline,
-                facecolors='none',
-                edgecolors=kwargs.get('ec', '#2F3737'),
-                linewidths=kwargs.get('lw', 0),
-                **{k: v for k, v in kwargs.items() if k not in ['fc', 'ec', 'lw', 'hatch', 'hatch_c', 'palette', 'fill']},
-            )
-            ax.add_collection(outline_collection)
+            if clip_patch is not None:
+                main_collection.set_clip_path(clip_patch)
+            # Outline collection reuses same patches (no duplicate creation)
+            outline_lw = kwargs.get('lw', 0)
+            if outline_lw > 0:
+                outline_collection = PatchCollection(
+                    polygon_patches,
+                    facecolors='none',
+                    edgecolors=kwargs.get('ec', '#2F3737'),
+                    linewidths=outline_lw,
+                    **{k: v for k, v in extra_kw.items() if k not in ['ls', 'dashes']},
+                )
+                ax.add_collection(outline_collection)
+                if clip_patch is not None:
+                    outline_collection.set_clip_path(clip_patch)
 
         # Lines with optional width mapping and casing (mainly for streets)
         if any(isinstance(geom, (LineString, MultiLineString)) for geom in gdf.geometry):
@@ -172,6 +179,8 @@ def plot_gdf(
                         zorder=max(kwargs.get('zorder', 3) - 0.1, 0),
                     )
                     ax.add_collection(casing)
+                    if clip_patch is not None:
+                        casing.set_clip_path(clip_patch)
 
             # Main stroke
             for lw_value, geoms in groups.items():
@@ -187,6 +196,8 @@ def plot_gdf(
                 if 'dashes' in kwargs:
                     line_collection.set_dashes(kwargs['dashes'])
                 ax.add_collection(line_collection)
+                if clip_patch is not None:
+                    line_collection.set_clip_path(clip_patch)
     elif mode == "plotter" and vsk:
         if kwargs.get("draw", True):
             vsk.stroke(kwargs.get("stroke", 1))
@@ -279,37 +290,65 @@ def plot(
         return Plot(gdfs, None, None, None)
     
     # Create background
-    background, *_ = create_background(gdfs, style)
+    background, xmin, ymin, xmax, ymax, dx, dy = create_background(gdfs, style)
     
-    # Draw layers
+    # Draw layers with proper sea/land ordering
     if mode == "matplotlib":
+        # --- Step 1: Draw sea (background rectangle in sea/water color) ---
+        sea_style = style.get("sea", {})
+        bg_style = style.get("background", {})
+        sea_fc = sea_style.get("fc", bg_style.get("fc", "#dbeafe"))
+        sea_zorder = sea_style.get("zorder", bg_style.get("zorder", -2))
+        ax.add_patch(
+            PolygonPatch(
+                background,
+                fc=sea_fc,
+                ec="none",
+                zorder=sea_zorder,
+            )
+        )
+
+        # --- Step 2: Draw land (perimeter filled with land color) ---
+        land_style = style.get("land", {})
+        perimeter_union = shapely.ops.unary_union(gdfs["perimeter"].geometry)
+        land_clip_patch = None
+        if not perimeter_union.is_empty:
+            if land_style:
+                land_fc = land_style.get("fc", "#ffffff")
+                land_zorder = land_style.get("zorder", -1)
+                land_clip_patch = PolygonPatch(
+                    perimeter_union,
+                    fc=land_fc,
+                    ec="none",
+                    zorder=land_zorder,
+                )
+                ax.add_patch(land_clip_patch)
+            else:
+                # Create invisible clip patch even without land style
+                land_clip_patch = PolygonPatch(
+                    perimeter_union, fc="none", ec="none", zorder=-1,
+                )
+                ax.add_patch(land_clip_patch)
+
+        # --- Step 3: Draw data layers clipped to the land perimeter ---
         for layer, gdf in gdfs.items():
+            if layer == "perimeter":
+                continue
             if layer in layers or layer in style:
                 plot_gdf(
                     layer,
                     gdf,
                     ax,
                     width=layers.get(layer, {}).get("width"),
+                    clip_patch=land_clip_patch,
                     **(style.get(layer, {})),
                 )
         
-        # Draw background
-        background_style = style.get("background", {})
-        if background_style:
-            zorder = background_style.get("zorder", -1)
-            background_kwargs = {k: v for k, v in background_style.items() if k not in ("dilate", "zorder")}
-            ax.add_patch(
-                PolygonPatch(
-                    background,
-                    **background_kwargs,
-                    zorder=zorder,
-                )
-            )
-        
-        # Adjust figure
+        # --- Step 4: Set tight bounds and finalize ---
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
         ax.axis("off")
-        ax.axis("equal")
-        ax.autoscale()
+        ax.set_aspect("equal")
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     
     return Plot(gdfs, fig, ax, background)

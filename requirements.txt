@@ -1,8 +1,7 @@
 geopandas
 matplotlib
 osmnx
-psutil
 PyYAML
 numpy
 shapely
-# vsketch # Optional, for pen plotter support - install manually if needed 
+# vsketch # Optional, for pen plotter support - install manually if needed
