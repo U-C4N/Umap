@@ -11,8 +11,27 @@ from typing import Dict, List, Tuple, Optional
 logger = logging.getLogger(__name__)
 
 from .core.plot import plot
-from .utils.drawing import add_frame, add_north_arrow, add_scale_bar, add_legend_simple
+from .utils.drawing import (
+    add_frame,
+    add_north_arrow,
+    add_scale_bar,
+    add_legend_simple,
+    add_poster_layout,
+    format_center_coords,
+)
 from .utils.styles import get_style, list_styles
+
+
+def _is_dark_style(style: Dict) -> bool:
+    """Heuristic: dark land color means map chrome should be light."""
+    land_fc = style.get('land', {}).get('fc', '#ffffff')
+    try:
+        hex_color = land_fc.lstrip('#')
+        r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        luminance = 0.299 * r + 0.587 * g + 0.114 * b
+        return luminance < 100
+    except (ValueError, AttributeError, IndexError):
+        return False
 
 
 def parse_coordinates(coord_str: str) -> Tuple[float, float]:
@@ -33,7 +52,7 @@ def load_config(config_path: Optional[str] = None) -> Dict:
         'default': {
             'style': 'minimal',
             'dpi': 300,
-            'format': 'jpg',
+            'format': 'png',   # lossless by default; jpg saves with quality=95
             'cache_enabled': True,
             'radius': 5000
         }
@@ -82,6 +101,10 @@ def create_simple_map(args):
         style_name = 'vintage'
     elif args.minimal:
         style_name = 'minimal'
+    elif args.neon:
+        style_name = 'neon'
+    elif args.papercraft:
+        style_name = 'papercraft'
     
     try:
         style = get_style(style_name)
@@ -90,7 +113,14 @@ def create_simple_map(args):
     
     # Create plot
     radius = args.radius if args.radius is not None else defaults.get('radius', 5000)
-    dpi = defaults.get('dpi', 300)
+    if args.eight_k:
+        dpi = 800   # ~10400px wide, extreme zoom headroom
+    elif args.four_k:
+        dpi = 400   # ~5200px wide, true 4K+ in both dimensions
+    elif args.two_k:
+        dpi = 200   # ~2600px wide, lighter files
+    else:
+        dpi = defaults.get('dpi', 300)
     use_cache = defaults.get('cache_enabled', True)
     
     print(f"Creating map for {location}...")
@@ -106,12 +136,22 @@ def create_simple_map(args):
         )
         
         if map_plot.fig and map_plot.ax:
-            # Add frame
-            add_frame(map_plot.ax)
-            # Add extras
-            add_north_arrow(map_plot.ax)
-            add_scale_bar(map_plot.ax, length_km=max(1, int(radius/2000)))
-            add_legend_simple(map_plot.ax, style)
+            chrome_color = '#e5e7eb' if _is_dark_style(style) else '#1f2937'
+
+            add_frame(map_plot.ax, color=chrome_color)
+            if args.poster:
+                # Clean poster: title + coordinates footer, no map furniture
+                title = args.location if args.location else args.coords
+                add_poster_layout(
+                    map_plot.ax,
+                    title=title,
+                    subtitle=format_center_coords(map_plot.ax),
+                    color=chrome_color,
+                )
+            else:
+                add_north_arrow(map_plot.ax, color=chrome_color)
+                add_scale_bar(map_plot.ax, length_km=max(1, int(radius/2000)), color=chrome_color)
+                add_legend_simple(map_plot.ax, style, text_color=chrome_color)
             
             # Determine output path - default to current working directory
             if args.output:
@@ -123,13 +163,22 @@ def create_simple_map(args):
                 output_filename = f"{location_name}_map.{output_format}"
                 output_path = os.path.join(os.getcwd(), output_filename)
 
+            # Margins should match the map background, not hardcoded white
+            page_color = style.get('sea', {}).get(
+                'fc', style.get('background', {}).get('fc', '#fff')
+            )
+            save_kwargs = {}
+            if output_format in ('jpg', 'jpeg'):
+                # Default PIL quality (75) causes visible artifacts on fine lines
+                save_kwargs['pil_kwargs'] = {'quality': 95, 'subsampling': 0}
             map_plot.fig.savefig(
                 output_path,
                 dpi=dpi,
                 bbox_inches='tight',
-                facecolor='#fff',
+                facecolor=page_color,
                 pad_inches=0.5,
-                format=output_format
+                format=output_format,
+                **save_kwargs
             )
             
             end_time = time.time()
@@ -152,7 +201,17 @@ def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         description='Create maps from OpenStreetMap data',
-        epilog='Examples:\n  umap Istanbul\n  umap "New York"\n  umap Istanbul --blueprint\n  umap "New York" --vintage --radius 10000',
+        epilog=(
+            'Examples:\n'
+            '  umap Istanbul\n'
+            '  umap "New York"\n'
+            '  umap Istanbul --blueprint\n'
+            '  umap Istanbul --neon --poster --4k\n'
+            '  umap Istanbul --papercraft --radius 1500\n'
+            '  umap Istanbul --8k                        (deep zoom raster)\n'
+            '  umap Istanbul --format svg                (infinite zoom, vector)\n'
+            '  umap "New York" --vintage --radius 10000'
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
@@ -177,7 +236,7 @@ def main():
     parser.add_argument(
         '--style',
         default=None,
-        help='Style: minimal, blueprint, vintage (default: config or minimal)'
+        help='Style: minimal, blueprint, vintage, neon, papercraft (default: config or minimal)'
     )
     parser.add_argument(
         '--blueprint',
@@ -195,9 +254,42 @@ def main():
         help='Use minimal style (shortcut for --style minimal)'
     )
     parser.add_argument(
+        '--neon',
+        action='store_true',
+        help='Use neon night style with glowing streets (shortcut for --style neon)'
+    )
+    parser.add_argument(
+        '--papercraft',
+        action='store_true',
+        help='Use 2.5D isometric paper-model style (shortcut for --style papercraft)'
+    )
+    parser.add_argument(
+        '--poster',
+        action='store_true',
+        help='Poster layout: city name + coordinates footer, no compass/legend'
+    )
+    parser.add_argument(
+        '--2k',
+        dest='two_k',
+        action='store_true',
+        help='2K output (~2600px wide, lighter files)'
+    )
+    parser.add_argument(
+        '--4k',
+        dest='four_k',
+        action='store_true',
+        help='4K+ output (~5200px wide, print ready)'
+    )
+    parser.add_argument(
+        '--8k',
+        dest='eight_k',
+        action='store_true',
+        help='8K output (~10400px wide, deep zoom; large files)'
+    )
+    parser.add_argument(
         '--format',
         choices=['png', 'jpg', 'svg', 'pdf'],
-        help='Output format (default: jpg)'
+        help='Output format (default: png)'
     )
     parser.add_argument(
         '--output',

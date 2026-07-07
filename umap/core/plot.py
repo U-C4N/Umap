@@ -23,6 +23,7 @@ from shapely.geometry import (
 )
 from shapely.geometry.base import BaseGeometry
 from .fetch import get_gdfs
+from .extrude import plot_extruded_buildings
 from ..utils.styles import get_style
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,43 @@ def PolygonPatch(shape: BaseGeometry, **kwargs) -> PathPatch:
         Path(np.concatenate(vertices, 1).T, np.concatenate(codes)), **kwargs
     )
 
+def _add_glow(ax, geoms_or_patches, kind, kwargs, clip_patch=None, lw=1.0):
+    """Draw multi-pass halo layers behind lines or polygon outlines.
+
+    Passes go from wide/faint to narrow/brighter, producing a neon glow.
+    Controlled by style keys: glow, glow_color, glow_scale, glow_alpha, glow_passes.
+    """
+    color = kwargs.get('glow_color', kwargs.get('ec', '#ffffff'))
+    passes = int(kwargs.get('glow_passes', 5))
+    scale = float(kwargs.get('glow_scale', 6.0))
+    alpha = float(kwargs.get('glow_alpha', 0.05))
+    base_zorder = kwargs.get('zorder', 3)
+
+    for i in range(passes, 0, -1):
+        glow_lw = lw * (1 + scale * i / passes)
+        if kind == 'lines':
+            collection = LineCollection(
+                geoms_or_patches,
+                colors=color,
+                linewidths=glow_lw,
+                alpha=alpha,
+                zorder=base_zorder - 0.5,
+                capstyle='round',
+            )
+        else:
+            collection = PatchCollection(
+                geoms_or_patches,
+                facecolors='none',
+                edgecolors=color,
+                linewidths=glow_lw,
+                alpha=alpha,
+                zorder=base_zorder - 0.5,
+            )
+        ax.add_collection(collection)
+        if clip_patch is not None:
+            collection.set_clip_path(clip_patch)
+
+
 def plot_gdf(
     layer: str,
     gdf: gp.GeoDataFrame,
@@ -114,8 +152,18 @@ def plot_gdf(
                 polygon_patches.append(PolygonPatch(shape))
 
         if polygon_patches:
-            # Extra kwargs excluding known polygon-specific keys
-            extra_kw = {k: v for k, v in kwargs.items() if k not in ['lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette', 'fill']}
+            # Extra kwargs excluding known polygon-specific and glow/casing keys
+            _reserved = [
+                'lw', 'ec', 'fc', 'hatch', 'hatch_c', 'palette', 'fill',
+                'glow', 'glow_color', 'glow_scale', 'glow_alpha', 'glow_passes',
+                'casing_ec', 'casing_alpha', 'casing_scale',
+            ]
+            extra_kw = {k: v for k, v in kwargs.items() if k not in _reserved}
+            if kwargs.get('glow'):
+                _add_glow(
+                    ax, polygon_patches, 'patches', kwargs,
+                    clip_patch=clip_patch, lw=max(kwargs.get('lw', 0.3), 0.3),
+                )
             hatch_c = kwargs.get('hatch_c', kwargs.get('ec', '#2F3737'))
             # Fill collection with hatch support
             main_collection = PatchCollection(
@@ -168,6 +216,15 @@ def plot_gdf(
                     for line in geom.geoms:
                         groups.setdefault(current_width, []).append(np.column_stack(line.xy))
 
+            # Neon glow halo behind all line strokes
+            if kwargs.get('glow'):
+                all_geoms = [g for geoms in groups.values() for g in geoms]
+                avg_lw = (
+                    sum(lw * len(geoms) for lw, geoms in groups.items())
+                    / max(sum(len(geoms) for geoms in groups.values()), 1)
+                )
+                _add_glow(ax, all_geoms, 'lines', kwargs, clip_patch=clip_patch, lw=avg_lw)
+
             # Draw casing first if requested
             if 'casing_ec' in kwargs and 'casing_scale' in kwargs:
                 for lw_value, geoms in groups.items():
@@ -177,12 +234,14 @@ def plot_gdf(
                         linewidths=lw_value * float(kwargs.get('casing_scale', 2.0)),
                         alpha=float(kwargs.get('casing_alpha', 1.0)),
                         zorder=max(kwargs.get('zorder', 3) - 0.1, 0),
+                        capstyle='round',
+                        joinstyle='round',
                     )
                     ax.add_collection(casing)
                     if clip_patch is not None:
                         casing.set_clip_path(clip_patch)
 
-            # Main stroke
+            # Main stroke: round caps/joins for smooth intersections
             for lw_value, geoms in groups.items():
                 line_collection = LineCollection(
                     geoms,
@@ -190,6 +249,8 @@ def plot_gdf(
                     linewidths=lw_value,
                     alpha=kwargs.get('alpha', 1),
                     zorder=kwargs.get('zorder'),
+                    capstyle='round',
+                    joinstyle='round',
                 )
                 if 'ls' in kwargs:
                     line_collection.set_linestyle(kwargs['ls'])
@@ -261,6 +322,16 @@ def plot(
         'perimeter': {},
         'water': {},
         'waterway': {},
+        'green': {
+            'tags': {
+                'leisure': ['park', 'garden', 'pitch', 'playground'],
+                'landuse': [
+                    'grass', 'forest', 'meadow', 'recreation_ground',
+                    'village_green', 'cemetery', 'orchard', 'vineyard'
+                ],
+                'natural': ['wood', 'scrub', 'heath', 'grassland'],
+            }
+        },
         'streets': {
             'width': {
                 'motorway': 4.5,
@@ -334,14 +405,28 @@ def plot(
         for layer, gdf in gdfs.items():
             if layer == "perimeter":
                 continue
+            if layer == "green" and "green" not in style:
+                # Don't paint default-colored parks on styles that predate the layer
+                continue
             if layer in layers or layer in style:
+                layer_style = style.get(layer, {})
+                if "extrude" in layer_style:
+                    plot_extruded_buildings(
+                        gdf,
+                        ax,
+                        layer_style["extrude"],
+                        span=max(dx, dy),
+                        clip_patch=land_clip_patch,
+                        zorder=layer_style.get("zorder", 5),
+                    )
+                    continue
                 plot_gdf(
                     layer,
                     gdf,
                     ax,
                     width=layers.get(layer, {}).get("width"),
                     clip_patch=land_clip_patch,
-                    **(style.get(layer, {})),
+                    **layer_style,
                 )
         
         # --- Step 4: Set tight bounds and finalize ---

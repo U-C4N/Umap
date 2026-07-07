@@ -1,16 +1,8 @@
 <p align="center">
   <h1 align="center">Umap</h1>
   <p align="center">
-    Create beautiful, print-ready maps from OpenStreetMap data with a single command.
+    Beautiful, print-ready city maps from OpenStreetMap — with a single command.
   </p>
-</p>
-
-<p align="center">
-  <a href="#installation">Installation</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#styles">Styles</a> •
-  <a href="#python-api">Python API</a> •
-  <a href="#configuration">Configuration</a>
 </p>
 
 ---
@@ -28,97 +20,95 @@
     <td><img src="examples/istanbul_blueprint.png" width="300" /></td>
     <td><img src="examples/istanbul_vintage.png" width="300" /></td>
   </tr>
+  <tr>
+    <td align="center"><strong>Neon</strong></td>
+    <td align="center"><strong>Papercraft (2.5D)</strong></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><img src="examples/istanbul_neon.png" width="300" /></td>
+    <td><img src="examples/istanbul_papercraft.png" width="300" /></td>
+    <td></td>
+  </tr>
 </table>
 
-> All examples above: **Istanbul**, radius = 3000m
-
-## Features
-
-- **One-command maps** — `umap Istanbul` and you're done
-- **Sea & land rendering** — Coastal cities render with proper water colors, not blank white
-- **3 built-in styles** — Minimal, Blueprint, Vintage — or register your own
-- **Smart optimization** — Detail level auto-adjusts based on map radius
-- **Auto caching** — Repeated areas generate instantly from local cache
-- **Multi-format export** — PNG, JPG, SVG, PDF
-- **Python API** — Full programmatic control for custom workflows
-- **Parallel data fetching** — Layers are fetched concurrently for speed
-
-## Installation
+## Install
 
 ```bash
 pip install umap-osm
 ```
 
-Or install from source:
+## Your first map
 
 ```bash
-git clone https://github.com/U-C4N/Umap.git
-cd Umap
-pip install -e .
-```
-
-**Requirements:** Python >= 3.8
-
-## Quick Start
-
-### CLI
-
-```bash
-# Just a city name
 umap Istanbul
-
-# Coordinates
-umap --coords "48.8566,2.3522"
-
-# Pick a style
-umap Istanbul --style blueprint
-umap Istanbul --style vintage
-
-# Adjust radius (meters)
-umap "New York" --radius 8000
-
-# Export format
-umap Istanbul --format svg --output istanbul.svg
 ```
 
-### Style shortcuts
+That's it. A PNG appears in your current folder. First run downloads map data (1–3 min); repeats are instant thanks to caching.
+
+## The commands you'll actually use
 
 ```bash
-umap Istanbul --blueprint
-umap Istanbul --vintage
-umap Istanbul --minimal
+# Any city, town or address
+umap Istanbul
+umap "New York"
+umap "Kadıköy, Istanbul"
+
+# Exact location (lat,lon)
+umap --coords "41.0082,28.9784"
+
+# Pick a look
+umap Istanbul --minimal      # clean & light (default)
+umap Istanbul --blueprint    # dark technical drawing
+umap Istanbul --vintage      # old-atlas colors
+umap Istanbul --neon         # glowing night city
+umap Istanbul --papercraft   # 2.5D paper-model buildings
+
+# Poster mode: city name + coordinates footer
+umap Istanbul --neon --poster
+
+# Zoom level: radius in meters around the center
+umap Istanbul --radius 1500   # neighborhood detail
+umap Istanbul --radius 8000   # whole city
+
+# Save with your own name
+umap Istanbul --output my_map.png
 ```
+
+## Getting truly high resolution
+
+PNG/JPG are pixel images — every pixel image blurs if you zoom far enough.
+Pick the right tool for your goal:
+
+| Command | Output | Best for |
+|---|---|---|
+| `umap Istanbul --2k` | ~2600 px | phone wallpaper, social media |
+| `umap Istanbul` | ~3900 px | desktop wallpaper |
+| `umap Istanbul --4k` | ~5200 px | A2 poster print |
+| `umap Istanbul --8k` | ~10400 px | large prints, deep zooming |
+| `umap Istanbul --format svg` | vector | **infinite zoom, never blurs** |
+| `umap Istanbul --format pdf` | vector | print shops |
+
+**Rule of thumb:** printing or zooming a lot → use `--8k` or `--format svg`.
+
+```bash
+# Razor sharp at any zoom level:
+umap Istanbul --neon --poster --format svg
+```
+
+Tip: `--papercraft` looks best with `--radius 2000` or less.
 
 ## Python API
 
-### Basic usage
-
 ```python
 import umap
 
-# Create a map
-result = umap.plot("Istanbul", radius=3000, style="minimal")
-
-# Save it
-result.fig.savefig("istanbul.png", dpi=300, bbox_inches="tight")
+result = umap.plot("Istanbul", radius=3000, style="neon")
+result.fig.savefig("istanbul.png", dpi=400, bbox_inches="tight",
+                   facecolor="#04040c", pad_inches=0.5)
 ```
 
-### With extras (frame, north arrow, scale bar)
-
-```python
-import umap
-from umap.utils.drawing import add_frame, add_north_arrow, add_scale_bar
-
-result = umap.plot("Istanbul", radius=5000, style="vintage")
-
-add_frame(result.ax)
-add_north_arrow(result.ax)
-add_scale_bar(result.ax, length_km=2)
-
-result.fig.savefig("istanbul_full.png", dpi=300, bbox_inches="tight")
-```
-
-### Custom style
+### Your own style
 
 ```python
 import umap
@@ -127,21 +117,44 @@ my_style = {
     "sea":        {"fc": "#1a1a2e", "ec": "none", "zorder": -2},
     "land":       {"fc": "#16213e", "ec": "none", "zorder": -1},
     "background": {"fc": "#1a1a2e", "zorder": -2, "pad": 1.02},
-    "streets":    {"ec": "#e94560", "lw": 0.8, "zorder": 4},
+    "green":      {"fc": "#12331f", "ec": "none", "zorder": 1},
+    "streets":    {"ec": "#e94560", "lw": 0.8, "zorder": 4,
+                   "glow": True, "glow_scale": 6.0},   # neon halo on any layer
     "building":   {"ec": "#533483", "fc": "#0f3460", "lw": 0.3, "zorder": 5},
     "water":      {"ec": "#1a1a6e", "fc": "#162447", "lw": 0.3, "zorder": 2},
 }
 
 umap.register_style("cyberpunk", my_style)
-result = umap.plot("Tokyo", radius=4000, style="cyberpunk")
-result.fig.savefig("tokyo_cyberpunk.png", dpi=300, bbox_inches="tight")
+umap.plot("Tokyo", radius=4000, style="cyberpunk")
 ```
 
-### Multi-plot
+### 2.5D buildings in your style
+
+Add an `extrude` block to the `building` layer and footprints rise up
+using OSM floor-count data (see the `papercraft` style in
+`umap/utils/styles.py` for all options):
 
 ```python
-import umap
+my_style["building"] = {
+    "zorder": 5,
+    "extrude": {"direction": 62, "scale": 0.0018, "default_levels": 2},
+}
+```
 
+### Poster footer
+
+```python
+from umap.utils.drawing import add_frame, add_poster_layout, format_center_coords
+
+result = umap.plot("Istanbul", radius=3000, style="vintage")
+add_frame(result.ax)
+add_poster_layout(result.ax, title="Istanbul",
+                  subtitle=format_center_coords(result.ax))
+```
+
+### Several cities on one canvas
+
+```python
 plots = umap.multiplot(
     umap.Subplot("Istanbul", radius=3000, style="minimal"),
     umap.Subplot("Paris",    radius=3000, style="blueprint"),
@@ -149,74 +162,28 @@ plots = umap.multiplot(
 )
 ```
 
-### Cache management
+### Cache
 
 ```python
-import umap
-
-# Check cache stats
-info = umap.get_cache_info()
-print(f"Cache: {info['file_count']} files, {info['total_size_mb']:.1f} MB")
-
-# Clear old entries
-removed = umap.clear_cache(older_than_days=3)
+umap.get_cache_info()               # size & file count
+umap.clear_cache(older_than_days=3) # clean old entries
 ```
 
-## Configuration
+## Defaults file (optional)
 
-Create `~/.umap/config.yaml` for persistent defaults:
+Create `~/.umap/config.yaml` to skip repeating flags:
 
 ```yaml
 default:
-  style: minimal
-  dpi: 300
+  style: neon
   format: png
-  cache_enabled: true
   radius: 5000
-```
-
-## How it works
-
-```
-Query (city name / coords)
-    │
-    ├── Geocode & create perimeter boundary
-    │
-    ├── Fetch layers in parallel (streets, buildings, water, bridges...)
-    │
-    ├── Smart filter by radius (remove noise, adjust detail)
-    │
-    ├── Cache results locally
-    │
-    └── Render with matplotlib
-         ├── Sea background (blue)
-         ├── Land perimeter (white / styled)
-         ├── Water features (lakes, rivers)
-         ├── Streets with casing
-         ├── Buildings
-         └── Bridges
-```
-
-## Project structure
-
-```
-umap/
-├── __init__.py          # Public API exports
-├── __main__.py          # python -m umap
-├── cli.py               # Command-line interface
-├── core/
-│   ├── fetch.py         # OSM data fetching (parallel, cached)
-│   └── plot.py          # Matplotlib rendering pipeline
-└── utils/
-    ├── cache.py          # Pickle-based local cache
-    ├── drawing.py        # Frame, north arrow, scale bar, legend
-    ├── optimization.py   # Radius-based detail filtering
-    └── styles.py         # Built-in style definitions
+  dpi: 300          # --2k/--4k/--8k override this
 ```
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
