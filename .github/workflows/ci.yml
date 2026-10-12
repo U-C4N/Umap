@@ -43,6 +43,8 @@ jobs:
         run: uv sync --frozen --all-extras --dev
       - name: Check source
         run: uv run --frozen --all-extras ruff check src tests scripts
+      - name: Prepare test scratch directory
+        run: uv run --frozen --all-extras python -c "from pathlib import Path; Path('.cache').mkdir(exist_ok=True)"
       - name: Run tests without public-service requests
         run: uv run --frozen --all-extras pytest -m "not live" --basetemp .cache/pytest-ci --junitxml .cache/test-results.xml
       - name: Build wheel and source distribution
