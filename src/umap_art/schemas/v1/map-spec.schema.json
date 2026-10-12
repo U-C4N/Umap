@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AreaSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "center": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Center"
+        },
+        "place": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Place"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "scale_denominator": {
+          "default": 5000,
+          "maximum": 1000000,
+          "minimum": 100,
+          "title": "Scale Denominator",
+          "type": "number"
+        }
+      },
+      "title": "AreaSpec",
+      "type": "object"
+    },
+    "Limits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_area_km2": {
+          "default": 25,
+          "exclusiveMinimum": 0,
+          "maximum": 25,
+          "title": "Max Area Km2",
+          "type": "number"
+        },
+        "acquisition_seconds": {
+          "default": 180,
+          "exclusiveMinimum": 0,
+          "maximum": 300,
+          "title": "Acquisition Seconds",
+          "type": "number"
+        },
+        "max_response_bytes": {
+          "default": 157286400,
+          "maximum": 157286400,
+          "minimum": 1024,
+          "title": "Max Response Bytes",
+          "type": "integer"
+        },
+        "max_features": {
+          "default": 200000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Max Features",
+          "type": "integer"
+        }
+      },
+      "title": "Limits",
+      "type": "object"
+    },
+    "PageSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "size": {
+          "default": "A3",
+          "enum": [
+            "A3",
+            "A4"
+          ],
+          "title": "Size",
+          "type": "string"
+        },
+        "orientation": {
+          "default": "landscape",
+          "enum": [
+            "landscape",
+            "portrait"
+          ],
+          "title": "Orientation",
+          "type": "string"
+        },
+        "dpi": {
+          "default": 300,
+          "maximum": 600,
+          "minimum": 72,
+          "title": "Dpi",
+          "type": "integer"
+        },
+        "margin_mm": {
+          "default": 10,
+          "maximum": 30,
+          "minimum": 5,
+          "title": "Margin Mm",
+          "type": "number"
+        },
+        "header_mm": {
+          "default": 20,
+          "maximum": 40,
+          "minimum": 15,
+          "title": "Header Mm",
+          "type": "number"
+        },
+        "footer_mm": {
+          "default": 16,
+          "maximum": 35,
+          "minimum": 12,
+          "title": "Footer Mm",
+          "type": "number"
+        },
+        "text_mode": {
+          "default": "editable",
+          "enum": [
+            "editable",
+            "outline"
+          ],
+          "title": "Text Mode",
+          "type": "string"
+        }
+      },
+      "title": "PageSpec",
+      "type": "object"
+    },
+    "SourceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "photon_url": {
+          "default": "https://photon.komoot.io",
+          "title": "Photon Url",
+          "type": "string"
+        },
+        "overpass_url": {
+          "default": "https://overpass-api.de/api/interpreter",
+          "title": "Overpass Url",
+          "type": "string"
+        },
+        "overture_catalog_url": {
+          "default": "https://stac.overturemaps.org/catalog.json",
+          "title": "Overture Catalog Url",
+          "type": "string"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot"
+        },
+        "offline": {
+          "default": false,
+          "title": "Offline",
+          "type": "boolean"
+        },
+        "include_ocean": {
+          "default": true,
+          "title": "Include Ocean",
+          "type": "boolean"
+        }
+      },
+      "title": "SourceSpec",
+      "type": "object"
+    },
+    "StyleRule": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "enum": [
+            "buildings",
+            "roads",
+            "green",
+            "water"
+          ],
+          "title": "Layer",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": true,
+          "title": "When",
+          "type": "object"
+        },
+        "paint": {
+          "additionalProperties": true,
+          "title": "Paint",
+          "type": "object"
+        }
+      },
+      "required": [
+        "layer",
+        "paint"
+      ],
+      "title": "StyleRule",
+      "type": "object"
+    },
+    "StyleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1",
+          "default": "1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "theme": {
+          "default": "architectural",
+          "enum": [
+            "architectural",
+            "city_poster"
+          ],
+          "title": "Theme",
+          "type": "string"
+        },
+        "background": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Background"
+        },
+        "layers": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "propertyNames": {
+            "enum": [
+              "buildings",
+              "roads",
+              "green",
+              "water"
+            ]
+          },
+          "title": "Layers",
+          "type": "object"
+        },
+        "order": {
+          "items": {
+            "enum": [
+              "buildings",
+              "roads",
+              "green",
+              "water"
+            ],
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/StyleRule"
+          },
+          "maxItems": 100,
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "StyleSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "area": {
+      "$ref": "#/$defs/AreaSpec"
+    },
+    "page": {
+      "$ref": "#/$defs/PageSpec"
+    },
+    "style": {
+      "$ref": "#/$defs/StyleSpec"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceSpec"
+    },
+    "limits": {
+      "$ref": "#/$defs/Limits"
+    },
+    "views": {
+      "items": {
+        "enum": [
+          "general",
+          "figure_ground",
+          "roads",
+          "green",
+          "water"
+        ],
+        "type": "string"
+      },
+      "maxItems": 5,
+      "minItems": 1,
+      "title": "Views",
+      "type": "array"
+    },
+    "formats": {
+      "items": {
+        "enum": [
+          "png",
+          "svg",
+          "pdf"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Formats",
+      "type": "array"
+    },
+    "title": {
+      "default": "Umap",
+      "maxLength": 180,
+      "title": "Title",
+      "type": "string"
+    },
+    "subtitle": {
+      "default": "",
+      "maxLength": 240,
+      "title": "Subtitle",
+      "type": "string"
+    },
+    "language": {
+      "default": "tr",
+      "enum": [
+        "tr",
+        "en"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "geometry_policy": {
+      "default": "strict",
+      "enum": [
+        "strict",
+        "repair"
+      ],
+      "title": "Geometry Policy",
+      "type": "string"
+    },
+    "bundle": {
+      "default": true,
+      "title": "Bundle",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "area"
+  ],
+  "title": "MapSpec",
+  "type": "object"
+}

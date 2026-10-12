@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "StyleRule": {
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "enum": [
+            "buildings",
+            "roads",
+            "green",
+            "water"
+          ],
+          "title": "Layer",
+          "type": "string"
+        },
+        "when": {
+          "additionalProperties": true,
+          "title": "When",
+          "type": "object"
+        },
+        "paint": {
+          "additionalProperties": true,
+          "title": "Paint",
+          "type": "object"
+        }
+      },
+      "required": [
+        "layer",
+        "paint"
+      ],
+      "title": "StyleRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "theme": {
+      "default": "architectural",
+      "enum": [
+        "architectural",
+        "city_poster"
+      ],
+      "title": "Theme",
+      "type": "string"
+    },
+    "background": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Background"
+    },
+    "layers": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "propertyNames": {
+        "enum": [
+          "buildings",
+          "roads",
+          "green",
+          "water"
+        ]
+      },
+      "title": "Layers",
+      "type": "object"
+    },
+    "order": {
+      "items": {
+        "enum": [
+          "buildings",
+          "roads",
+          "green",
+          "water"
+        ],
+        "type": "string"
+      },
+      "title": "Order",
+      "type": "array"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/StyleRule"
+      },
+      "maxItems": 100,
+      "title": "Rules",
+      "type": "array"
+    }
+  },
+  "title": "StyleSpec",
+  "type": "object"
+}

@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "umap-art"
+version = "0.1.0"
+description = "Independent, keyless map artwork for Python, the command line, and MCP"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{name = "Umap contributors"}]
+dependencies = [
+  "pydantic>=2.11,<3", "httpx>=0.28,<1", "shapely>=2.1,<3",
+  "pyproj>=3.7,<4", "matplotlib>=3.10,<4", "osmium>=4,<5",
+  "pyarrow>=20,<27", "platformdirs>=4,<5", "filelock>=3.18,<4",
+]
+
+[project.urls]
+Source = "https://github.com/U-C4N/Umap"
+Documentation = "https://github.com/U-C4N/Umap/blob/main/docs/api.md"
+Issues = "https://github.com/U-C4N/Umap/issues"
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.3,<3"]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-cov>=6", "ruff>=0.11", "build>=1.2", "pypdf>=5", "Pillow>=11", "psutil>=6"]
+
+[project.scripts]
+umap-art = "umap_art.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/umap_art"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: opt-in requests to public data services"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

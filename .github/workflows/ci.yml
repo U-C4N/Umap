@@ -1,0 +1,64 @@
+name: Python package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-package:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # GitHub documents macos-15 as ARM64; the other two labels use x64.
+        os: [ubuntu-24.04, windows-2025, macos-15]
+        python: ["3.12", "3.13", "3.14"]
+    env:
+      PYTHONUTF8: "1"
+      MPLBACKEND: Agg
+      UMAP_CACHE_DIR: ${{ github.workspace }}/.cache/umap
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.16"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - name: Install locked development environment
+        run: uv sync --frozen --all-extras --dev
+      - name: Check source
+        run: uv run --frozen --all-extras ruff check src tests scripts
+      - name: Run tests without public-service requests
+        run: uv run --frozen --all-extras pytest -m "not live" --basetemp .cache/pytest-ci --junitxml .cache/test-results.xml
+      - name: Build wheel and source distribution
+        run: uv build --no-sources
+      - name: Install binary dependencies and smoke test built wheel
+        run: uv run --frozen --all-extras python scripts/wheel_smoke.py --install dist --environment .cache/wheel-venv
+      - name: Preserve packages and test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: umap-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            .cache/test-results.xml
+            .cache/wheel-smoke-result.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

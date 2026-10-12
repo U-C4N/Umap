@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "title": "Kadıköy",
+  "subtitle": "İstanbul",
+  "language": "tr",
+  "style": {"theme": "city_poster"},
+  "page": {"size": "A3", "orientation": "landscape", "dpi": 300},
+  "formats": ["png", "svg", "pdf"]
+}

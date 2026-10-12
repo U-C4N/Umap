@@ -1,0 +1,13 @@
+flowchart LR
+    python["Python API"] --> service["Ortak uygulama servisleri"]
+    cli["CLI: terminal komutları"] --> service
+    mcp["Yerel MCP"] --> service
+    service --> source["Veri sağlayıcıları"]
+    local["GeoJSON / PBF"] --> source
+    online["Yapılandırılmış OSM hizmeti"] --> source
+    source --> dataset["Doğrulanmış Dataset"]
+    dataset --> geometry["Projeksiyon ve geometri"]
+    geometry --> scene["Sahne derleyicisi"]
+    style["Özgün stil şeması"] --> scene
+    scene --> renderer["Çizim adaptörü"]
+    renderer --> result["PNG / SVG / PDF ve manifesto"]

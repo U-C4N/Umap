@@ -1,0 +1,60 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+# Do not cancel an upload in progress when another release is created.
+concurrency:
+  group: pypi-publish
+  cancel-in-progress: false
+
+jobs:
+  validate-release:
+    name: Match the release tag to package metadata
+    if: github.repository == 'U-C4N/Umap'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the released commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate version and tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python3 scripts/check_release.py
+
+  verify:
+    name: Verify the release on all supported platforms
+    needs: validate-release
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish the tested distributions
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/umap-art/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Take the wheel/sdist already installed and smoke-tested by CI. This job
+      # does not check out the repository or execute package build hooks.
+      - name: Download the tested Linux distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: umap-ubuntu-24.04-py3.14
+          path: release-artifacts
+      - name: Publish using PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: release-artifacts/dist/
+          skip-existing: true
+          attestations: true

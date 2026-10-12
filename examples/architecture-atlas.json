@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "title": "Kadıköy",
+  "subtitle": "Kent kesitleri / Urban sections",
+  "views": ["figure_ground", "roads", "green", "water"],
+  "style": {"theme": "architectural"},
+  "page": {"size": "A3", "orientation": "landscape", "dpi": 300},
+  "formats": ["png", "svg", "pdf"]
+}
