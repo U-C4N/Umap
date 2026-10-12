@@ -1,7 +1,0 @@
-geopandas
-matplotlib
-osmnx
-PyYAML
-numpy
-shapely
-# vsketch # Optional, for pen plotter support - install manually if needed
