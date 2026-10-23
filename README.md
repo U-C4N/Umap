@@ -1,105 +1,219 @@
 # Umap Art
 
-Editable, physically scaled map artwork from free, keyless online data — in Python,
-from a terminal, or through a local MCP server.
+**One neighborhood. An architectural atlas, a field guide and a poster you can keep editing.**
 
-Umap owns its source adapters, geometry pipeline, declarative styles and scene model.
-It uses Shapely, pyproj and Matplotlib as infrastructure. Prettymaps, OSMnx, QGIS and
-GDAL are not runtime dependencies.
+Create maps for spatial studies, presentations and personal neighborhood guides
+from open data. Start with a bundled real-world example, then choose a theme,
+add your own places, and export **PNG, editable SVG and vector PDF** at a
+real-world scale — through Python, the CLI or a local MCP server.
 
-## Install
+[![Python 3.12–3.14](https://img.shields.io/badge/Python-3.12%E2%80%933.14-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Source version 0.2.0](https://img.shields.io/badge/source-v0.2.0-2563EB)](docs/release-notes.md)
+[![License: MIT](https://img.shields.io/badge/code-MIT-16A34A)](LICENSE)
 
-Python 3.12–3.14 is supported by the CI matrix. The development environment was
-tested on Windows x64/Python 3.14. Public services can be slow or unavailable;
-there is no API key, account, or paid-service fallback.
+[Quick start](#quick-start) · [Python](#create-a-poster-in-python) ·
+[MCP](#connect-your-mcp-client) · [Documentation](#documentation) ·
+[Türkçe başlangıç](docs/hizli-baslangic.md)
 
-After the first successful PyPI release, install the published package with:
+![The same saved Kadıköy data presented as four architectural pages, a numbered field guide and a personal poster](docs/release-showcase.png)
+
+*One saved Kadıköy dataset, acquired on 12 October 2026. All example pages are A4
+at 1:5000; the atlas has a taller map frame than the poster and guide. Example
+points are illustrative selections, not verified venues. Map data
+© OpenStreetMap contributors and Overture Maps, ODbL.*
+
+## What you can make
+
+| Make | Start with | What you get |
+|---|---|---|
+| An architectural study | `umap-art demo --preset atlas` | Four aligned A4 pages for buildings, roads, green spaces and water |
+| A neighborhood guide | `umap-art demo --preset guide` | A4 portrait, blueprint colours and an ordered place directory |
+| A personal city poster | `umap-art demo` | A4 portrait, vintage colours, a centred title and numbered places |
+| A general city map | [Kadıköy map](examples/kadikoy.json) | A3 landscape with a legend, scale bar and all four map layers |
+
+- **Edit the artwork.** SVG retains semantic groups, individual paths, stable IDs
+  and editable text. PDF embeds the bundled font.
+- **Keep the scale.** Page geometry uses millimetres and points. Set a scale such
+  as 1:5000, or fit a bounding box to the page.
+- **Make it yours.** Choose from six themes, override layer colours, adjust title sizes
+  and add up to twelve numbered places.
+- **Revise offline.** Saved recipes pin a verified dataset. Changing colours,
+  text or selected places reuses that data.
+- **Take the project with you.** Every default export includes the recipe,
+  snapshot, source manifest, font/license and a portable ZIP.
+
+The bundled demo needs no map download. Acquiring your own area uses public
+services without an account or API key. Their
+availability and data coverage can vary. Umap runs locally and does not call a
+model API; an MCP client supplies its own assistant.
+
+## Quick start
+
+Use Python **3.12–3.14**, the versions configured in the CI matrix. The commands
+below install the v0.2.0 code from this checkout; see the
+[release status](docs/validation.md) for completed checks and pending release gates.
 
 ```sh
-python -m pip install umap-art
-# Include the optional MCP adapter:
-python -m pip install "umap-art[mcp]"
-umap-art doctor
-```
-
-Until that release is published, install from this checkout:
-
-```sh
+git clone https://github.com/U-C4N/Umap.git
+cd Umap
 python -m pip install .
-# Include the optional MCP adapter:
-python -m pip install '.[mcp]'
 umap-art doctor
+umap-art demo --preset atlas --output outputs
 ```
 
-For development, install [uv](https://docs.astral.sh/uv/) and run `uv sync --all-extras`.
-The distribution is `umap-art`; the Python import is `umap_art`.
-Maintainers can publish from a GitHub release using
-[the PyPI publishing guide](https://github.com/U-C4N/Umap/blob/main/docs/publishing.md).
+Already in the repository? Start at `python -m pip install .`. If your shell cannot
+find `umap-art`, use `python -m umap_art` with the same Python environment.
+The distribution name is `umap-art`; the import is `umap_art`.
 
-## Make a map
+The demo works from the installed package, without cloning example files or
+contacting map services. Installation itself may download Python dependencies.
+The command prints the preview, SVG, PDF and recipe paths, and creates a new
+project directory under `outputs`. Open a PNG to inspect the map or an SVG to
+continue in your vector editor. The atlas produces four separate pages.
 
-From the repository checkout, these example recipes are ready to run:
+Make a guide or poster from the same saved data, without editing JSON:
 
 ```sh
-umap-art render examples/kadikoy.json --output outputs
-umap-art render examples/architecture-atlas.json --output outputs
+umap-art demo --preset guide --output outputs
+umap-art demo --theme neon --output outputs
+umap-art styles
 ```
 
-The first command produces an A3 Kadıköy map as PNG, editable SVG and vector PDF.
-The second produces four separate, aligned pages: buildings, roads, green and water.
-The recipe files are in the repository's
-[examples directory](https://github.com/U-C4N/Umap/tree/main/examples); they are not
-installed as working-directory files by pip. The Python example below works with
-either installation method.
-Each run creates its own directory with a recipe, verified dataset snapshot, source
-manifest, bundled font/license and portable `project.zip`.
+Use `--preset poster`, `guide` or `atlas`; `--theme` overrides that preset's theme.
+Each run keeps earlier outputs and delivers its own recipe, snapshot and ZIP.
+All three presets share a dataset and physical scale; their visible frames need
+not match. The demo is an example of the saved data, not a current geographic survey.
+
+For your own area, use the Python example below or adapt a [repository recipe](examples)
+and run `umap-art render <recipe.json> --output outputs`. Those additional recipes
+are not copied into your working directory by package installation. First
+acquisition depends on public services; delivered snapshots support later offline edits.
+
+## Choose your look
+
+| Theme | Palette and treatment |
+|---|---|
+| `architectural` | Restrained greys and soft land/water colours |
+| `city_poster` | Terracotta buildings, cream streets and blue water |
+| `minimal` | Black, white and greys |
+| `blueprint` | Navy background with pale vector outlines |
+| `vintage` | Sepia, muted greens and warm paper colours |
+| `neon` | Dark background, cyan roads and pink accents |
+
+Use `page.layout="poster"` for a centred title below the map, or `"guide"` for a
+title above it. Both provide a two-column directory for up to twelve places and
+use the `general` view. The default `classic` layout also supports the four
+analytical views.
+
+The place band has a fixed size, even when empty: adding or removing a point does
+not move the map frame. Neon uses vector fills and strokes, keeping the SVG and
+PDF editable. See the [poster guide](docs/posters.md) for layout details.
+
+## Create a poster in Python
 
 ```python
 from umap_art import MapSpec, render
 
 spec = MapSpec(
     area={"center": [29.025, 40.985], "scale_denominator": 5000},
+    page={"size": "A4", "orientation": "portrait", "layout": "poster", "dpi": 300},
+    style={"theme": "vintage", "accent": "#913E2B"},
     title="Kadıköy",
-    subtitle="İstanbul",
-    style={"theme": "city_poster"},
-    page={"size": "A3", "orientation": "landscape", "dpi": 300},
+    subtitle="Seçtiğim noktalar · İstanbul",
+    places=[
+        {"id": "meeting", "label": "Buluşma noktası", "coordinates": [29.025, 40.985]},
+    ],
 )
+
 result = render(spec, output_dir="outputs")
 print(result.recipe_path)
 ```
 
-Coordinates are always **longitude, latitude**. To choose a place by name, run
-`umap-art locations "Kadıköy, İstanbul"` and use the selected candidate's coordinates.
-`area.place` is also accepted; an ambiguous search returns candidates instead of
-silently choosing the first result.
+Coordinates are always **longitude, latitude**. Place IDs must be unique;
+numbering follows list order. Labels are your own content, and rendering does
+not search for or invent locations.
+
+To find coordinates by name:
+
+```sh
+umap-art locations "Kadıköy, İstanbul"
+```
+
+Choose the intended candidate and use its coordinates. Python and CLI recipes also
+accept `area.place`; ambiguous results return candidates for you to choose from.
+
+| To change… | Set… |
+|---|---|
+| Overall palette | `style.theme` |
+| One layer's colour or line width | `style.layers` |
+| Features matching a property, such as primary roads | `style.rules` |
+| Text and marker colours | `style.ink`, `style.accent` |
+| Title and subtitle size | `page.title_size_pt`, `page.subtitle_size_pt` |
+| Place names, positions or order | `places` |
+
+See the [recipe/API reference](docs/api.md) for field limits, filters and errors.
+Version 0.2 reads existing v1 recipes with their classic defaults. Recipes using
+the new poster fields require Umap 0.2 or newer, while `schema_version` remains `"1"`.
 
 ## Edit without downloading again
+
+Continue from the Python example above, using its `result`:
 
 ```python
 from pathlib import Path
 from umap_art import MapSpec, render
 
-# `result` is the RenderResult returned by the previous example.
 recipe = Path(result.recipe_path)
-spec = MapSpec.model_validate_json(recipe.read_text(encoding="utf-8"))
-spec.source.snapshot = str(recipe.parent / spec.source.snapshot)
-spec.style.layers["roads"] = {"stroke": "#B34A44", "width_mm": 0.4}
-changed = render(spec, output_dir="outputs")
+edited = MapSpec.model_validate_json(recipe.read_text(encoding="utf-8"))
+edited.source.snapshot = str(recipe.parent / edited.source.snapshot)
+edited.style.theme = "blueprint"
+edited.style.accent = "#FFE09A"
+edited.places[0].label = "Burada buluşalım"
+
+revised = render(edited, output_dir="outputs")
+print(revised.recipe_path)
 ```
 
-Saved recipes default to `offline: true`. Run `umap-art render` with the saved
-recipe path to resolve its relative snapshot automatically. `umap-art refresh`
-explicitly acquires fresh data into a new output directory. Changing source
-selection or enlarging a map beyond a pinned snapshot requires a refresh.
+Saved recipes set `source.offline=true`. The CLI resolves a saved recipe's relative
+snapshot path automatically; constructing a model from JSON yourself requires
+resolving it as shown above.
 
-## Connect MCP
+Use `umap-art refresh` with your recipe when you explicitly want fresh data.
+Changing providers or expanding the map beyond its pinned snapshot also requires
+a refresh. Each render writes a new output directory and preserves earlier outputs.
+
+### What travels with an export
+
+A default single-view export contains:
+
+```text
+general.png          Raster image at the requested DPI
+general.svg          Editable vector artwork
+general.pdf          Vector PDF with embedded font
+recipe.json          Design settings and selected places
+snapshot.json        Hash-verified geographic data
+manifest.json        Sources, versions, diagnostics and artifact hashes
+assets/              Bundled font and its license
+DATA-LICENSES.txt     Source attribution and license notices
+project.zip          Portable copy of the project
+```
+
+Keep the whole output directory or `project.zip` to reproduce a design. Analytical
+exports use their view names, such as `figure_ground.svg`, instead of `general`.
+For SVG text editing, install the delivered DejaVu Sans font in your editor;
+`page.text_mode="outline"` converts text to paths when font independence matters.
+
+## Connect your MCP client
+
+Install the optional adapter from the repository, then start a local workspace:
 
 ```sh
+python -m pip install ".[mcp]"
 umap-art mcp --workspace ./map-workspace
 ```
 
-Register that command in your MCP client, using an absolute workspace path and an
-executable available to the client. Example server entry for a Windows installation:
+Register the command in your client's server configuration, with an absolute
+workspace path and an executable the client can find. Example for Windows:
 
 ```json
 {
@@ -112,48 +226,98 @@ executable available to the client. Example server entry for a Windows installat
 }
 ```
 
-The server provides ten tools for location search, themes, creation, inspection,
-targeted edits, data refresh, rendering, job inspection/cancellation and artifacts.
-Long jobs return `job_id`; the client polls `get_job`. Use `base_revision` for edits.
-Undo creates a new revision from an old one. The server does not call a model API.
-See [MCP behavior](https://github.com/U-C4N/Umap/blob/main/docs/mcp.md) for the full
-contract and output limits.
+Example request to your connected assistant:
 
-## Data and licensing
+> Create an A4 portrait poster of Kadıköy in the vintage theme. Use the title
+> “Benim Kadıköy’üm” and mark the three coordinates I provide. Then change only
+> the theme to blueprint and export SVG and PDF.
 
-| Purpose | Provider | Behavior |
+The server exposes **ten tools** for location search, styles, map creation,
+inspection, edits, refresh, rendering, job status/cancellation and artifacts.
+Long operations return a `job_id`; poll `get_job` for the result. Edits use
+`base_revision`, and restoring an earlier version creates a new revision.
+
+Colour, text and place edits use pinned data. For a larger page needing more
+coverage, `refresh_map_data` accepts the intended `changes` and commits them only
+after a successful refresh without a revision conflict.
+See the [MCP contract](docs/mcp.md) for tool arguments, previews and artifact access.
+
+## Data, scale and boundaries
+
+| Data | Provider | How Umap uses it |
 |---|---|---|
-| Place search | [Photon](https://github.com/komoot/photon#demo-server) | Cached, user-initiated searches; no silent ambiguous selection |
-| Buildings, roads, green, inland water | [Overpass / OpenStreetMap](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) | Bounded raw OSM queries, assembled with Pyosmium |
-| Ocean polygons | [Overture](https://docs.overturemaps.org/schema/reference/base/water/) | Anonymous STAC/GeoParquet range reads for selected files and row groups |
+| Place search | [Photon](https://github.com/komoot/photon#demo-server) | Cached, user-initiated searches with explicit candidate selection |
+| Buildings, roads, green and inland water | [OpenStreetMap / Overpass](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) | Bounded queries assembled with Pyosmium |
+| Ocean polygons | [Overture](https://docs.overturemaps.org/schema/reference/base/water/) | Anonymous STAC/GeoParquet reads for the selected area |
 
-The data remains subject to source licenses and attribution. OpenStreetMap and
-Overture Base water are ODbL data; the application code is MIT; DejaVu Sans has its
-own bundled license. Ocean and Overpass data can have different dates. An OSM
-building map is not a completeness guarantee or a cadastral survey.
+- A3/A4 pages, portrait or landscape, fixed centre/scale or bbox fitting, up to
+  **25 km²**. Choosing a place name does not select its entire administrative area.
+- PNG at 72–600 DPI, editable SVG and RGB vector PDF. CMYK/PDF-X, routing, GPX,
+  3D, a web editor and remote MCP are outside this release.
+- Out-of-frame points and overflowing text produce explicit errors. Overlapping
+  or edge-clipped markers produce diagnostics without moving their coordinates.
+- Source dates can differ, and successful downloads do not establish geographic
+  completeness. OSM building data is not a cadastral survey.
 
-## Scope and verification
+Umap owns its source adapters, geometry pipeline, declarative styles and scene
+model. Shapely, pyproj and Matplotlib provide infrastructure; Prettymaps, OSMnx,
+QGIS and GDAL are not runtime dependencies. Python calls within one process are
+serialized; MCP uses isolated render workers. See the [architecture](docs/architecture.md).
 
-- A3/A4, fixed center/scale or bbox fitting, up to 25 km².
-- Two themes, four analytical views plus a combined general map.
-- Editable SVG text by default; install the delivered font in the target editor,
-  or use `page.text_mode="outline"` for path text.
-- RGB PDF with embedded font. CMYK/PDF-X, remote MCP, routing, 3D and a web editor
-  are outside this release.
-- Python calls within one process are serialized; MCP isolates render workers.
-- Derived caches can be rebuilt. Keep a saved output directory or `project.zip`
-  when reproducibility matters.
+## Development and verification
+
+Install [uv](https://docs.astral.sh/uv/), then run from the repository:
 
 ```sh
-uv run pytest
+uv sync --frozen --all-extras --dev
+uv run pytest -m "not live"
 uv run ruff check src tests scripts
 uv run python scripts/benchmark.py
-# Explicitly contact public services:
+uv run python scripts/poster_gallery.py
+uv run python scripts/release_showcase.py --output outputs/release-showcase
+```
+
+The benchmark and default gallery generator use synthetic snapshots. The release
+showcase uses the bundled real Kadıköy snapshot, creates the six themes, a guide,
+four analytical pages and a before/after comparison, and verifies an extracted
+ZIP can reproduce the edited result. All three disable network connections.
+Choose a new showcase output directory on every run to preserve its evidence.
+Its `index.json` records dataset, geometry, marker, scene and artifact checks;
+this does not replace manual SVG editing acceptance. To test public providers:
+
+```sh
 uv run pytest --live -m live
 ```
 
-[Türkçe hızlı başlangıç](https://github.com/U-C4N/Umap/blob/main/docs/hizli-baslangic.md)
-· [Recipe/API reference](https://github.com/U-C4N/Umap/blob/main/docs/api.md)
-· [Architecture](https://github.com/U-C4N/Umap/blob/main/docs/architecture.md)
-· [Validation and release status](https://github.com/U-C4N/Umap/blob/main/docs/validation.md)
-· [Publish from GitHub](https://github.com/U-C4N/Umap/blob/main/docs/publishing.md)
+**Recorded v0.2 validation, 13 October 2026:** 133 tests passed on Windows x64 /
+Python 3.14.6, Ruff passed, and a fresh wheel installation passed offline output
+and real MCP stdio checks. Four classic reference images remained pixel-identical.
+The repository configures a nine-environment CI matrix; remote results for these
+changes, Inkscape GUI acceptance, the user pilot and reference-machine performance
+remain separate release gates. See [validation and measured performance](docs/validation.md).
+
+For bug reports, include the output of `umap-art --version`, the error code and a
+minimal recipe. [Open an issue](https://github.com/U-C4N/Umap/issues).
+
+## Documentation
+
+| I want to… | Read |
+|---|---|
+| Get started in Turkish | [Türkçe hızlı başlangıç](docs/hizli-baslangic.md) |
+| Design a poster or guide | [Poster workflow and gallery](docs/posters.md) |
+| Understand recipe fields and errors | [Python/API reference](docs/api.md) |
+| Connect an assistant | [Local MCP workflow](docs/mcp.md) |
+| Understand the implementation | [Architecture and data ownership](docs/architecture.md) |
+| Check what changed and what was verified | [Release notes](docs/release-notes.md) · [Validation](docs/validation.md) |
+| Publish a release | [GitHub/PyPI publishing guide](docs/publishing.md) |
+
+## License and attribution
+
+Umap's application code is [MIT licensed](LICENSE). Geographic data retains its
+source licenses: OpenStreetMap and Overture Base water use ODbL. DejaVu Sans has
+its [own bundled license](src/umap_art/assets/fonts/LICENSE_DEJAVU).
+Preserve the source attribution when sharing artwork; source and font notices
+travel with each default export.
+
+[OpenStreetMap attribution](https://www.openstreetmap.org/copyright) ·
+[Overture attribution](https://docs.overturemaps.org/attribution/)

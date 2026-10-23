@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from . import __version__
 from .errors import UmapError
 from .workspace import Workspace
 
@@ -29,7 +30,7 @@ def create_server(root: Path | str, *, provider_urls: dict[str, str] | None = No
             workspace.close()
 
     server = MCPServer(
-        "Umap", version="0.1.0", lifespan=lifespan,
+        "Umap", version=__version__, lifespan=lifespan,
         instructions=("Create editable maps from keyless public data. Search ambiguous places first and "
                       "choose a candidate; use inspect_map before edits and pass base_revision. Long "
                       "operations return application job_id values. Poll get_job; use cancel_job to "
@@ -67,10 +68,10 @@ def create_server(root: Path | str, *, provider_urls: dict[str, str] | None = No
 
     @server.tool(annotations=readonly)
     def list_styles():
-        """List bundled themes and the editable style fields."""
+        """List bundled themes, layouts, editable style/poster fields and the place limit."""
         from .styles import list_styles as styles
         return call(lambda: {"styles": styles(), "editable_fields": [
-            "theme", "background", "layers", "order", "rules"]})
+            "theme", "background", "ink", "accent", "layers", "order", "rules"]})
 
     @server.tool(annotations=mutation)
     def create_map(spec: dict, candidate_id: str | None = None, request_id: str | None = None):
@@ -97,13 +98,22 @@ def create_server(root: Path | str, *, provider_urls: dict[str, str] | None = No
     @server.tool(annotations=mutation)
     def edit_map(map_id: str, base_revision: int, changes: dict | None = None,
                  restore_revision: int | None = None, request_id: str | None = None):
-        """Patch title/subtitle/language/page/style/views or restore a revision, then queue preview."""
+        """Patch title/subtitle/language/page/style/views/places or restore; then queue preview.
+
+        Places replace the whole ordered list. Use selected search coordinates;
+        rendering never searches place names. Poster/guide layouts use general view.
+        """
         return call(workspace.edit_map, map_id, base_revision, changes, restore_revision, request_id)
 
     @server.tool(annotations=mutation)
-    def refresh_map_data(map_id: str, base_revision: int, request_id: str | None = None):
-        """Acquire fresh online data. Commit only if base_revision still matches upon completion."""
-        return call(workspace.refresh_map_data, map_id, base_revision, request_id)
+    def refresh_map_data(map_id: str, base_revision: int, request_id: str | None = None,
+                         changes: dict | None = None):
+        """Acquire fresh data, optionally applying editable changes such as a larger page.
+
+        Publish one new revision only after success and if base_revision still matches.
+        Failed or cancelled refreshes retain the current recipe and data.
+        """
+        return call(workspace.refresh_map_data, map_id, base_revision, request_id, changes)
 
     @server.tool(annotations=mutation)
     def render_map(map_id: str, revision: int | None = None, formats: list[str] | None = None,

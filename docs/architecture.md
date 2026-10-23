@@ -8,6 +8,7 @@ MCP-specific IDs, job queue, or database requirement.
 | `models` | Versioned validated public recipes/results |
 | `sources` | Photon search, complete OSM XML assembly, bounded Overture ocean reads |
 | `geometry` | UTM selection, scale/extent, validation, clipping, ocean union |
+| `layout` | Shared physical map frame, fixed title and place bands for extent and scene |
 | `styles` / `scene` | Declarative styling, deterministic IDs, layout in page points |
 | `renderer` | Matplotlib backends; no network or geographic decisions |
 | `service` / `storage` | Snapshots, separate caches, atomic outputs, manifests |
@@ -46,6 +47,17 @@ Projected geometry has a separate cache keyed by dataset, extent, repair policy 
 geometry implementation/dependency versions. Render caches include semantic scene,
 format/DPI/text mode, font hash and renderer implementation/dependency versions.
 Style changes reuse geometry; exact repeats can reuse verified output files.
+
+User-selected places live in the recipe, manifest and revision history, outside
+the source dataset. They are projected into the same metric CRS during scene
+compilation, so changing a place cannot change the dataset ID or the geometry
+cache. Fixed layout bands also prevent place count and typography from changing
+the map extent. The render implementation key includes the layout module.
+
+MCP refreshes may carry validated editable recipe changes. The pending job owns
+the candidate recipe; acquisition failure does not alter the current revision.
+Publication checks the original revision again before committing recipe, pinned
+snapshot and artifact metadata in one transaction.
 
 Source dates and transport success are not real-world completeness guarantees.
 `coverage` remains `not_assessed`. Normalized feature geometry and a manifest make

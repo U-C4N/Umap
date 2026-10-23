@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "page": {"size": "A4", "orientation": "portrait", "layout": "classic", "dpi": 300},
+  "style": {"theme": "architectural"},
+  "source": {"snapshot": "snapshot.json", "offline": true, "include_ocean": true},
+  "title": "Kadıköy",
+  "subtitle": "Mimari okuma",
+  "places": [],
+  "views": ["figure_ground", "roads", "green", "water"],
+  "formats": ["png", "svg", "pdf"],
+  "bundle": true
+}

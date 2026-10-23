@@ -1,0 +1,21 @@
+Kadikoy bundled example — Umap Art
+
+Map data: © OpenStreetMap contributors and Overture Maps Foundation.
+Open Database License 1.0 (ODbL-1.0):
+https://opendatacommons.org/licenses/odbl/1-0/
+https://www.openstreetmap.org/copyright
+https://docs.overturemaps.org/attribution/
+
+This normalized geographic dataset was acquired on 12 October 2026.
+OpenStreetMap data timestamp: 2026-10-12T07:36:21Z.
+Overture release: 2026-09-23.1.
+Exact source endpoints, queries, access times and raw-response hashes remain in
+snapshot.json. Original machine-specific raw-file paths were removed before
+redistribution, and the normalized dataset hash was recomputed. Raw downloads
+are not included. Geographic coverage has not been independently assessed.
+
+The three named points are illustrative user selections, not verified venues,
+business recommendations or a walking route. Preserve source attribution when
+sharing the data or generated artwork. Umap's MIT software license does not
+replace the map data license. Bundled DejaVu Sans has its own font license,
+delivered with generated projects under assets/fonts/.

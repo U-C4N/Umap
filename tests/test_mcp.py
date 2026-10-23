@@ -22,7 +22,7 @@ def test_registered_tools_and_errors_are_protocol_errors(tmp_path):
                 "refresh_map_data", "render_map", "get_job", "cancel_job", "get_artifact"}
             styles = await server.call_tool("list_styles", {})
             assert not styles.is_error
-            assert len(styles.structured_content["styles"]) == 2
+            assert len(styles.structured_content["styles"]) == 6
             missing = await server.call_tool("inspect_map", {"map_id": "missing"})
             assert missing.is_error
             assert missing.structured_content["error"]["code"] == "MAP_NOT_FOUND"
@@ -86,7 +86,7 @@ def test_real_stdio_roundtrip_and_shutdown_releases_workspace(tmp_path):
                 assert len(tools.tools) == 10
                 result = await client.call_tool("list_styles")
                 assert not result.is_error
-                assert len(result.structured_content["styles"]) == 2
+                assert len(result.structured_content["styles"]) == 6
     asyncio.run(scenario())
     with Workspace(tmp_path, start_worker=False):
         pass

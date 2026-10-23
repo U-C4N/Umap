@@ -26,7 +26,7 @@ from .storage import file_hash
 
 _TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
 _PROVIDERS = ("photon_url", "overpass_url", "overture_catalog_url")
-_EDITABLE = {"title", "subtitle", "language", "page", "style", "views"}
+_EDITABLE = {"title", "subtitle", "language", "page", "style", "views", "places"}
 
 
 def _json(value: Any) -> str:
@@ -259,7 +259,7 @@ class Workspace:
                 dataset_id = restored["dataset_id"]
             else:
                 if not changes or set(changes) - _EDITABLE:
-                    raise UmapError("INVALID_EDIT", "Only title, subtitle, language, page, style, views are editable")
+                    raise UmapError("INVALID_EDIT", "Only title, subtitle, language, page, style, views, places are editable")
                 raw = _merge(before, changes)
                 dataset_id = current["dataset_id"]
             checked = self._spec(raw).model_dump(mode="json")
@@ -273,7 +273,7 @@ class Workspace:
                 bbox = area.bbox
                 if not (dataset.bbox[0] - 1e-7 <= bbox[0] and dataset.bbox[1] - 1e-7 <= bbox[1]
                         and dataset.bbox[2] + 1e-7 >= bbox[2] and dataset.bbox[3] + 1e-7 >= bbox[3]):
-                    raise UmapError("SNAPSHOT_COVERAGE", "Page change exceeds saved data; create a map for the new page")
+                    raise UmapError("SNAPSHOT_COVERAGE", "Page change exceeds saved data; pass changes to refresh_map_data explicitly")
             revision = base_revision + 1
             self._db.execute("INSERT INTO revisions VALUES(?,?,?,?,?,?)",
                              (map_id, revision, _json(checked), checked["source"]["snapshot"], dataset_id, time.time()))
@@ -290,8 +290,10 @@ class Workspace:
         return _merge(spec, {"formats": ["png"], "page": {"dpi": 72}, "bundle": False})
 
     def refresh_map_data(self, map_id: str, base_revision: int,
-                         request_id: str | None = None) -> dict:
+                         request_id: str | None = None, changes: dict | None = None) -> dict:
         payload = {"method": "refresh_map_data", "map_id": map_id, "base_revision": base_revision}
+        if changes is not None:
+            payload["changes"] = changes
         with self._guard, self._db:
             prior = self._existing_request(request_id, payload)
             if prior:
@@ -300,6 +302,10 @@ class Workspace:
             if row["revision"] != base_revision:
                 raise UmapError("REVISION_CONFLICT", "Map changed; inspect the current revision")
             spec = self._resolved_spec(row)
+            if changes is not None:
+                if not changes or set(changes) - _EDITABLE:
+                    raise UmapError("INVALID_EDIT", "Refresh changes must use editable recipe fields")
+                spec = _merge(spec, changes)
             spec["source"].update(snapshot=None, offline=False)
             spec = self._spec(spec).model_dump(mode="json")
             job_id = self._queue(map_id, base_revision + 1, "refresh", spec, base_revision)

@@ -37,6 +37,8 @@ def test_schema_export_cli_and_packaged_resources(tmp_path):
                                       "render-result.schema.json", "dataset.schema.json"}
     packaged = files("umap_art").joinpath("schemas", "v1")
     for name in exported["files"]:
+        assert json.loads((destination/name).read_text(encoding="utf-8")) == json.loads(
+            packaged.joinpath(name).read_text(encoding="utf-8"))
         for contents in [(destination/name).read_text(encoding="utf-8"),
                          packaged.joinpath(name).read_text(encoding="utf-8")]:
             schema = json.loads(contents)

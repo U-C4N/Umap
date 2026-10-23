@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "page": {"size": "A3", "orientation": "portrait", "layout": "poster", "dpi": 300},
+  "style": {"theme": "vintage"},
+  "title": "Kadıköy",
+  "subtitle": "Seçtiğim üç nokta · İstanbul",
+  "places": [
+    {"id": "meeting", "label": "Buluşma noktası", "coordinates": [29.0226, 40.9903]},
+    {"id": "break", "label": "Mola noktası", "coordinates": [29.0292, 40.9882]},
+    {"id": "view", "label": "Manzara noktası", "coordinates": [29.0261, 40.9816]}
+  ]
+}

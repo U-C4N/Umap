@@ -14,10 +14,16 @@ concurrency:
 
 jobs:
   validate-release:
-    name: Match the release tag to package metadata
+    name: Verify and promote the accepted candidate distributions
     if: github.repository == 'U-C4N/Umap'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-name: ${{ steps.accepted-name.outputs.name }}
+      distribution-hashes: ${{ steps.distribution-check.outputs.distributions }}
     steps:
       - name: Check out the released commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,15 +33,36 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: python3 scripts/check_release.py
-
-  verify:
-    name: Verify the release on all supported platforms
-    needs: validate-release
-    uses: ./.github/workflows/ci.yml
+      - name: Validate release evidence and candidate CI provenance
+        id: candidate-check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_release_candidate.py --event "$GITHUB_EVENT_PATH" --manifest candidate-evidence.json --github-output "$GITHUB_OUTPUT"
+      - name: Download the exact artifact from the accepted candidate run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.candidate-check.outputs.artifact_id }}
+          run-id: ${{ steps.candidate-check.outputs.run_id }}
+          repository: U-C4N/Umap
+          github-token: ${{ github.token }}
+          path: candidate-artifact
+      - name: Verify downloaded distribution hashes and package metadata
+        id: distribution-check
+        run: python3 scripts/check_release_candidate.py --verify-download candidate-artifact --manifest candidate-evidence.json --output accepted-dist --github-output "$GITHUB_OUTPUT"
+      - name: Preserve only the verified distributions for publishing
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: accepted-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: accepted-dist/*
+          if-no-files-found: error
+          retention-days: 90
+      - name: Record the accepted artifact name for retries
+        id: accepted-name
+        run: echo "name=accepted-release-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Publish the tested distributions
-    needs: verify
+    needs: validate-release
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
@@ -45,16 +72,49 @@ jobs:
       contents: read
       id-token: write
     steps:
-      # Take the wheel/sdist already installed and smoke-tested by CI. This job
-      # does not check out the repository or execute package build hooks.
-      - name: Download the tested Linux distributions
+      # No checkout, project imports, package installation or rebuild in the
+      # OIDC publishing job. Bytes were verified before environment approval.
+      - name: Download the accepted distributions from this workflow attempt
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: umap-ubuntu-24.04-py3.14
+          name: ${{ needs.validate-release.outputs.artifact-name }}
           path: release-artifacts
+      - name: Recheck exact distributions after the final artifact transfer
+        env:
+          EXPECTED_DISTRIBUTIONS: ${{ needs.validate-release.outputs.distribution-hashes }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import re
+
+          expected = json.loads(os.environ["EXPECTED_DISTRIBUTIONS"])
+          if not isinstance(expected, dict) or len(expected) != 2:
+              raise SystemExit("Expected exactly two accepted distributions")
+          for name, digest in expected.items():
+              if (not isinstance(name, str) or pathlib.Path(name).name != name
+                      or "/" in name or "\\" in name or not isinstance(digest, str)
+                      or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+                  raise SystemExit("Invalid accepted distribution identity")
+          if (sum(name.endswith(".whl") for name in expected) != 1
+                  or sum(name.endswith(".tar.gz") for name in expected) != 1):
+              raise SystemExit("Expected one wheel and one source distribution")
+          actual = list(pathlib.Path("release-artifacts").iterdir())
+          if (len(actual) != 2 or {path.name for path in actual} != set(expected)
+                  or any(path.is_symlink() or not path.is_file() for path in actual)):
+              raise SystemExit("Downloaded distributions do not match the accepted file set")
+          for path in actual:
+              with path.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              if digest != expected[path.name]:
+                  raise SystemExit("Downloaded distribution hash mismatch: " + path.name)
+          print("Final transfer verified: exact accepted wheel and source distribution")
+          PY
       - name: Publish using PyPI Trusted Publishing
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
-          packages-dir: release-artifacts/dist/
-          skip-existing: true
+          packages-dir: release-artifacts/
+          skip-existing: false
           attestations: true

@@ -43,3 +43,14 @@ def test_renamed_package_requires_new_publisher_configuration(project):
     (project / "pyproject.toml").write_text('[project]\nname="another-package"\nversion="0.1.0"\n')
     with pytest.raises(ValueError, match="publisher"):
         release.check_release(project, "v0.1.0")
+
+
+def test_checkout_and_lockfile_versions_match():
+    import tomllib
+
+    from umap_art import __version__
+
+    root = Path(__file__).resolve().parents[1]
+    assert release.check_release(root, f"v{__version__}") == __version__
+    locked = tomllib.loads((root / "uv.lock").read_text("utf-8"))
+    assert next(p for p in locked["package"] if p["name"] == "umap-art")["version"] == __version__

@@ -7,6 +7,9 @@ first-use renderer imports, geometry preparation, all three 300 DPI formats and
 the project ZIP. The 72 DPI preview has warm geometry but no cached raster;
 the following cached-preview phase measures reuse of that exact raster. The last
 phase changes only road colour and must produce a new preview without networking.
+Two additional phases measure a new poster frame with twelve places (including
+geometry preparation, reported without a warm-preview time target), then an
+accent/order edit on that poster with the existing five-second preview target.
 
 Peak RSS samples this process and its children every 20 ms; this is a sampled
 high-water mark, not a guarantee that every instantaneous memory peak is captured.
@@ -113,7 +116,10 @@ def measure(name, spec, output_dir, time_target=None):
     try:
         # The public service gets a pinned, offline snapshot. This additional guard
         # fails conspicuously if an HTTP implementation attempts a new connection.
-        with patch("socket.create_connection", side_effect=RuntimeError("Benchmark networking disabled")):
+        with (patch("socket.create_connection", side_effect=RuntimeError("Benchmark networking disabled")),
+              patch("socket.socket.connect", side_effect=RuntimeError("Benchmark networking disabled")),
+              patch("socket.socket.connect_ex", side_effect=RuntimeError("Benchmark networking disabled")),
+              patch("socket.getaddrinfo", side_effect=RuntimeError("Benchmark networking disabled"))):
             result = render(spec, output_dir=output_dir)
         elapsed = time.perf_counter()-started
     finally:
@@ -135,10 +141,22 @@ def measure(name, spec, output_dir, time_target=None):
     return record
 
 
-def main():
+def meets_targets(records: list[dict]) -> bool:
+    """Check measured values, including phases without a timing target."""
+    return bool(records) and all(
+        record["peak_rss_bytes"] <= record["targets"]["peak_rss_bytes"]
+        and (record["targets"]["elapsed_seconds"] is None
+             or record["elapsed_seconds"] <= record["targets"]["elapsed_seconds"])
+        for record in records
+    )
+
+
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(".cache/benchmark"))
-    args = parser.parse_args()
+    parser.add_argument("--check", action="store_true",
+                        help="Exit unsuccessfully if any measured time or memory target fails")
+    args = parser.parse_args(argv)
     run_dir = args.output.resolve() / uuid.uuid4().hex
     run_dir.mkdir(parents=True)
     old_cache = os.environ.get("UMAP_CACHE_DIR")
@@ -156,6 +174,23 @@ def main():
         changed = preview.model_copy(deep=True)
         changed.style.layers["roads"] = {"stroke": "#BD4932"}
         records.append(measure("style_change_preview", changed, run_dir / "style-preview", 5))
+        poster = preview.model_copy(deep=True)
+        poster.page.layout = "poster"
+        poster.style.theme = "neon"
+        poster.title = "İstanbul — seçtiğim yerler"
+        poster.subtitle = "Synthetic poster benchmark"
+        poster_extent = compute_extent(poster)
+        west, south, east, north = poster_extent.bounds
+        inverse = Transformer.from_crs(poster_extent.crs, "EPSG:4326", always_xy=True)
+        raw = poster.model_dump(mode="json")
+        raw["places"] = [{"id": f"place-{i}", "label": f"Place {i+1}", "coordinates":
+            inverse.transform(west+(east-west)*(0.3+0.4*(i//6)),
+                              south+(north-south)*(0.15+0.14*(i % 6)))} for i in range(12)]
+        poster = MapSpec.model_validate(raw)
+        records.append(measure("poster_12_places_preview", poster, run_dir / "poster-preview", None))
+        poster.style.accent = "#FFE09A"
+        poster.places.reverse()
+        records.append(measure("poster_places_edit_preview", poster, run_dir / "places-preview", 5))
         report = {
             "schema_version": "1", "created_at": datetime.now(timezone.utc).isoformat(),
             "network": "disabled; synthetic pinned snapshot", "fixture": fixture,
@@ -167,12 +202,15 @@ def main():
             "versions": {name: importlib.metadata.version(name) for name in
                          ["umap-art", "shapely", "pyproj", "matplotlib", "psutil"]},
             "method": __doc__, "phases": records,
-            "style_change_changes_scene_hash": records[-1]["scene_hashes"] != records[1]["scene_hashes"],
+            "style_change_changes_scene_hash": records[3]["scene_hashes"] != records[1]["scene_hashes"],
+            "places_edit_changes_scene_hash": records[-1]["scene_hashes"] != records[-2]["scene_hashes"],
+            "meets_targets": meets_targets(records),
         }
         report_path = run_dir / "benchmark.json"
         atomic_json(report_path, report)
         atomic_json(args.output.resolve() / "latest.json", {"report": str(report_path)})
         print(json.dumps({"report": str(report_path)}), flush=True)
+        return 1 if args.check and not report["meets_targets"] else 0
     finally:
         if old_cache is None:
             os.environ.pop("UMAP_CACHE_DIR", None)
@@ -181,4 +219,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
