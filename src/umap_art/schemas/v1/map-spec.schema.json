@@ -171,9 +171,86 @@
           ],
           "title": "Text Mode",
           "type": "string"
+        },
+        "layout": {
+          "default": "classic",
+          "enum": [
+            "classic",
+            "poster",
+            "guide"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "title_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 48,
+              "minimum": 8,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Size Pt"
+        },
+        "subtitle_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 24,
+              "minimum": 7,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle Size Pt"
         }
       },
       "title": "PageSpec",
+      "type": "object"
+    },
+    "Place": {
+      "additionalProperties": false,
+      "description": "User-selected locations, kept in the recipe rather than the source dataset.",
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 180,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "coordinates": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Coordinates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "coordinates"
+      ],
+      "title": "Place",
       "type": "object"
     },
     "SourceSpec": {
@@ -264,7 +341,11 @@
           "default": "architectural",
           "enum": [
             "architectural",
-            "city_poster"
+            "city_poster",
+            "minimal",
+            "blueprint",
+            "vintage",
+            "neon"
           ],
           "title": "Theme",
           "type": "string"
@@ -280,6 +361,30 @@
           ],
           "default": null,
           "title": "Background"
+        },
+        "ink": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ink"
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accent"
         },
         "layers": {
           "additionalProperties": {
@@ -409,6 +514,14 @@
       "default": true,
       "title": "Bundle",
       "type": "boolean"
+    },
+    "places": {
+      "items": {
+        "$ref": "#/$defs/Place"
+      },
+      "maxItems": 12,
+      "title": "Places",
+      "type": "array"
     }
   },
   "required": [

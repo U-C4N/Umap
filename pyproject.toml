@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "umap-art"
-version = "0.1.0"
+version = "0.2.0"
 description = "Independent, keyless map artwork for Python, the command line, and MCP"
 readme = "README.md"
 requires-python = ">=3.12"

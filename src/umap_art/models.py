@@ -45,6 +45,9 @@ class PageSpec(Model):
     header_mm: float = Field(default=20, ge=15, le=40)
     footer_mm: float = Field(default=16, ge=12, le=35)
     text_mode: Literal["editable", "outline"] = "editable"
+    layout: Literal["classic", "poster", "guide"] = "classic"
+    title_size_pt: float | None = Field(default=None, ge=8, le=48)
+    subtitle_size_pt: float | None = Field(default=None, ge=7, le=24)
 
     @property
     def dimensions_mm(self) -> tuple[float, float]:
@@ -53,9 +56,9 @@ class PageSpec(Model):
 
     @property
     def frame_mm(self) -> tuple[float, float, float, float]:
-        w, h = self.dimensions_mm
-        m = self.margin_mm
-        return m, m + self.footer_mm, w - 2 * m, h - 2 * m - self.header_mm - self.footer_mm
+        from .layout import resolve_layout
+
+        return resolve_layout(self).frame_mm
 
 
 class Paint(Model):
@@ -92,8 +95,10 @@ class StyleRule(Model):
 
 class StyleSpec(Model):
     schema_version: Literal["1"] = "1"
-    theme: Literal["architectural", "city_poster"] = "architectural"
+    theme: Literal["architectural", "city_poster", "minimal", "blueprint", "vintage", "neon"] = "architectural"
     background: str | None = None
+    ink: str | None = None
+    accent: str | None = None
     layers: dict[Layer, dict[str, Any]] = Field(default_factory=dict)
     order: list[Layer] = Field(default_factory=lambda: ["water", "green", "buildings", "roads"])
     rules: list[StyleRule] = Field(default_factory=list, max_length=100)
@@ -102,8 +107,9 @@ class StyleSpec(Model):
     def validate_style(self):
         if set(self.order) != {"water", "green", "buildings", "roads"} or len(self.order) != 4:
             raise ValueError("order must contain every layer exactly once")
-        if self.background is not None:
-            Paint(fill=self.background)
+        for color in (self.background, self.ink, self.accent):
+            if color is not None:
+                Paint(fill=color)
         for p in list(self.layers.values()) + [r.paint for r in self.rules]:
             Paint.model_validate(p)
         return self
@@ -125,6 +131,23 @@ class Limits(Model):
     max_features: int = Field(default=200_000, ge=1, le=1_000_000)
 
 
+class Place(Model):
+    """User-selected locations, kept in the recipe rather than the source dataset."""
+
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=180)
+    coordinates: tuple[float, float]
+
+    @model_validator(mode="after")
+    def validate_place(self):
+        if not self.id.strip() or not self.label.strip():
+            raise ValueError("Place id and label must not be blank")
+        lon, lat = self.coordinates
+        if not (-180 <= lon <= 180 and -80 <= lat <= 84):
+            raise ValueError("Place coordinates must be longitude/latitude within UTM coverage")
+        return self
+
+
 class MapSpec(Model):
     schema_version: Literal["1"] = "1"
     area: AreaSpec
@@ -141,11 +164,18 @@ class MapSpec(Model):
     language: Literal["tr", "en"] = "tr"
     geometry_policy: Literal["strict", "repair"] = "strict"
     bundle: bool = True
+    places: list[Place] = Field(default_factory=list, max_length=12)
 
     @model_validator(mode="after")
     def unique_outputs(self):
         if len(set(self.views)) != len(self.views) or len(set(self.formats)) != len(self.formats):
             raise ValueError("views and formats must not contain duplicates")
+        if len({place.id for place in self.places}) != len(self.places):
+            raise ValueError("Place ids must be unique")
+        if self.page.layout != "classic" and self.views != ["general"]:
+            raise ValueError("Poster and guide layouts require views=['general']")
+        if self.places and self.page.layout == "classic":
+            raise ValueError("Places require a poster or guide layout")
         return self
 
 

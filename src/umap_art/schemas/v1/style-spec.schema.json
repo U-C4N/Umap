@@ -45,7 +45,11 @@
       "default": "architectural",
       "enum": [
         "architectural",
-        "city_poster"
+        "city_poster",
+        "minimal",
+        "blueprint",
+        "vintage",
+        "neon"
       ],
       "title": "Theme",
       "type": "string"
@@ -61,6 +65,30 @@
       ],
       "default": null,
       "title": "Background"
+    },
+    "ink": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ink"
+    },
+    "accent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accent"
     },
     "layers": {
       "additionalProperties": {

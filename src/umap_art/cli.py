@@ -20,6 +20,9 @@ def _emit(value, as_json=True):
 
 
 def parser():
+    from .demo import PRESETS
+    from .styles import THEMES
+
     root = argparse.ArgumentParser(prog="umap-art", description="Keyless, editable map artwork")
     root.add_argument("--version", action="version", version=importlib.metadata.version("umap-art"))
     commands = root.add_subparsers(dest="command", required=True)
@@ -31,11 +34,16 @@ def parser():
         p.add_argument("recipe", type=Path)
         p.add_argument("--output", type=Path, default=Path("outputs"))
         p.add_argument("--json", action="store_true")
+    p = commands.add_parser("demo", help="Render a bundled Kadıköy example completely offline")
+    p.add_argument("--preset", choices=PRESETS, default="poster")
+    p.add_argument("--theme", choices=THEMES, help="Override the preset's theme")
+    p.add_argument("--output", type=Path, default=Path("outputs"))
+    p.add_argument("--json", action="store_true")
     p = commands.add_parser("locations", help="Find place candidates")
     p.add_argument("query")
     p.add_argument("--country-code")
     p.add_argument("--json", action="store_true")
-    p = commands.add_parser("styles", help="List themes and editable layers")
+    p = commands.add_parser("styles", help="List themes, layouts and editable fields")
     p.add_argument("--json", action="store_true")
     p = commands.add_parser("inspect", help="Inspect a recipe or output manifest")
     p.add_argument("path", type=Path)
@@ -58,18 +66,32 @@ def main(argv=None) -> int:
             stream.reconfigure(encoding="utf-8")
     args = parser().parse_args(argv)
     try:
-        if args.command in ("render", "refresh"):
-            from .service import render
+        if args.command in ("render", "refresh", "demo"):
+            if args.command == "demo":
+                from .demo import render_demo
 
-            print("Preparing map and outputs…", file=sys.stderr)
-            result = render(args.recipe, output_dir=args.output, refresh=args.command == "refresh")
+                print("Rendering bundled Kadıköy data offline…", file=sys.stderr)
+                result = render_demo(args.preset, theme=args.theme, output_dir=args.output)
+            else:
+                from .service import render
+
+                print("Preparing map and outputs…", file=sys.stderr)
+                result = render(args.recipe, output_dir=args.output, refresh=args.command == "refresh")
             if args.json:
                 _emit(result.model_dump(mode="json"))
+            elif args.command == "demo":
+                print("Demo complete. Open a PNG preview or edit the SVG artwork:")
+                labels = {"image/png": "Preview", "image/svg+xml": "SVG", "application/pdf": "PDF"}
+                for artifact in result.artifacts:
+                    if artifact.mime_type in labels:
+                        print(f"{labels[artifact.mime_type]}: {Path(artifact.path).resolve()}")
+                print(f"Recipe: {Path(result.recipe_path).resolve()}")
+                print(f"Project: {Path(result.recipe_path).resolve().parent}")
             else:
                 for a in result.artifacts:
                     print(a.path)
-                for d in result.diagnostics:
-                    print(f"{d.severity}: {d.code}: {d.message}", file=sys.stderr)
+            for d in result.diagnostics:
+                print(f"{d.severity}: {d.code}: {d.message}", file=sys.stderr)
         elif args.command == "locations":
             from .sources import find_locations
 

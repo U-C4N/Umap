@@ -15,18 +15,46 @@ from .models import Feature, Paint, StyleSpec
 
 THEMES = {
     "architectural": {
-        "background": "#FAFAF7", "ink": "#252A30",
+        "background": "#FAFAF7", "ink": "#252A30", "accent": "#A84232",
         "buildings": {"fill": "#454A4F", "stroke": "#454A4F", "width_mm": 0.06},
         "roads": {"stroke": "#777C80", "width_mm": 0.24},
         "green": {"fill": "#CCD5C6", "stroke": None, "width_mm": 0},
         "water": {"fill": "#D4E3E8", "stroke": None, "width_mm": 0},
     },
     "city_poster": {
-        "background": "#F7ECDC", "ink": "#253A43",
+        "background": "#F7ECDC", "ink": "#253A43", "accent": "#9C382D",
         "buildings": {"fill": "#CE765C", "stroke": "#BA654F", "width_mm": 0.06},
         "roads": {"stroke": "#FBF6EC", "width_mm": 0.35},
         "green": {"fill": "#87A886", "stroke": None, "width_mm": 0},
         "water": {"fill": "#75AABB", "stroke": None, "width_mm": 0},
+    },
+    "minimal": {
+        "background": "#FFFFFF", "ink": "#171717", "accent": "#171717",
+        "buildings": {"fill": "#262626", "stroke": None, "width_mm": 0},
+        "roads": {"stroke": "#737373", "width_mm": 0.22},
+        "green": {"fill": "#E5E5E5", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#D4D4D4", "stroke": None, "width_mm": 0},
+    },
+    "blueprint": {
+        "background": "#102D50", "ink": "#EAF4FC", "accent": "#FFE09A",
+        "buildings": {"fill": None, "stroke": "#91BDD9", "width_mm": 0.10},
+        "roads": {"stroke": "#EAF4FC", "width_mm": 0.22},
+        "green": {"fill": "#244E66", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#0A203B", "stroke": "#598AAF", "width_mm": 0.12},
+    },
+    "vintage": {
+        "background": "#F1E4CA", "ink": "#4B3829", "accent": "#913E2B",
+        "buildings": {"fill": "#B59A78", "stroke": "#8D7253", "width_mm": 0.06},
+        "roads": {"stroke": "#765E47", "width_mm": 0.24},
+        "green": {"fill": "#A6AC87", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#A5BABB", "stroke": None, "width_mm": 0},
+    },
+    "neon": {
+        "background": "#111326", "ink": "#F2ECFF", "accent": "#FF78CC",
+        "buildings": {"fill": "#242545", "stroke": "#9B82E8", "width_mm": 0.10},
+        "roads": {"stroke": "#65F4F1", "width_mm": 0.24},
+        "green": {"fill": "#20534F", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#183567", "stroke": None, "width_mm": 0},
     },
 }
 
@@ -47,11 +75,16 @@ LABELS = {
 
 
 def list_styles() -> list[dict[str, Any]]:
-    """Return independently editable copies of the two built-in themes."""
+    """Return independent copies of themes and the shared layout capabilities."""
     return [
         {"name": name, "schema_version": "1", "defaults": deepcopy(theme),
          "views": list(VIEW_LAYERS),
          "editable_fields": list(Paint.model_fields),
+         "style_fields": ["theme", "background", "ink", "accent", "layers", "order", "rules"],
+         "layouts": ["classic", "poster", "guide"],
+         "layout_views": {"classic": list(VIEW_LAYERS), "poster": ["general"], "guide": ["general"]},
+         "poster_fields": ["page.layout", "page.title_size_pt", "page.subtitle_size_pt", "places"],
+         "max_places": 12,
          "filter_operators": ["all", "any", "eq", "in", "has"]}
         for name, theme in THEMES.items()
     ]

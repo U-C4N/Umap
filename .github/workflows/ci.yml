@@ -51,6 +51,12 @@ jobs:
         run: uv build --no-sources
       - name: Install binary dependencies and smoke test built wheel
         run: uv run --frozen --all-extras python scripts/wheel_smoke.py --install dist --environment .cache/wheel-venv
+      - name: Install the core wheel with plain pip
+        if: matrix.python == '3.14'
+        run: uv run --frozen --all-extras python scripts/wheel_smoke.py --install dist --environment .cache/core-wheel-venv --plain-install --result .cache/core-wheel-smoke-result.json
+      - name: Build and install the source distribution outside the checkout
+        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.14'
+        run: uv run --frozen --all-extras python scripts/wheel_smoke.py --install dist --environment .cache/sdist-wheel-venv --from-sdist --result .cache/sdist-wheel-smoke-result.json
       - name: Preserve packages and test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -61,6 +67,8 @@ jobs:
             dist/*.tar.gz
             .cache/test-results.xml
             .cache/wheel-smoke-result.json
+            .cache/core-wheel-smoke-result.json
+            .cache/sdist-wheel-smoke-result.json
           include-hidden-files: true
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 90

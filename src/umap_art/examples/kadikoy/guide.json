@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "page": {"size": "A4", "orientation": "portrait", "layout": "guide", "dpi": 300,
+           "title_size_pt": 22, "subtitle_size_pt": 9},
+  "style": {"theme": "blueprint", "accent": "#FFE09A"},
+  "source": {"snapshot": "snapshot.json", "offline": true, "include_ocean": true},
+  "title": "Benim Kadıköy’üm",
+  "subtitle": "Kişisel semt rehberi",
+  "places": [
+    {"id": "meeting", "label": "Buluşma noktası", "coordinates": [29.027, 40.987]},
+    {"id": "break", "label": "Mola noktası", "coordinates": [29.030, 40.984]},
+    {"id": "view", "label": "Manzara noktası", "coordinates": [29.026, 40.982]}
+  ],
+  "views": ["general"],
+  "formats": ["png", "svg", "pdf"],
+  "bundle": true
+}

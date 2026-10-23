@@ -7,11 +7,11 @@ This server has no LLM provider dependency and needs no model API key.
 | Tool | Contract |
 |---|---|
 | `find_map_location` | Query and optional country code → up to five persisted candidates |
-| `list_styles` | Themes, paint fields and supported views |
+| `list_styles` | Six themes, paint/style fields, layouts, poster fields and the twelve-place limit |
 | `create_map` | Validated recipe plus optional candidate ID/request ID → map/revision/job IDs |
 | `inspect_map` | Current recipe, history, pinned data, jobs, artifacts and diagnostics |
 | `edit_map` | `map_id`, `base_revision`, targeted `changes` or `restore_revision` |
-| `refresh_map_data` | Fetch new data and commit only if the base revision still matches |
+| `refresh_map_data` | Optional editable `changes`; fetch the resulting extent and commit only if the base revision still matches |
 | `render_map` | Render a chosen revision; optional formats or small preview |
 | `get_job` | State, error, results and artifact identities |
 | `cancel_job` | Cancel queued/running work without removing older outputs |
@@ -34,6 +34,35 @@ gate. A failed preview leaves the revision and previous outputs inspectable. Sou
 data refresh is a separate operation. Conflicts return `REVISION_CONFLICT` instead
 of silently overwriting another edit. Optional `request_id` values deduplicate
 repeated mutation requests; reusing an ID with different arguments is an error.
+
+## Personalize a poster
+
+Set `page.layout` to `poster` or `guide`, and use `views: ["general"]`. Add up to
+twelve `places`, each with a stable `id`, `label` and `[longitude, latitude]`
+`coordinates`. Choose coordinates yourself or use an explicitly selected
+`find_map_location` candidate's `center`. Rendering never resolves place names.
+
+`edit_map` accepts `places` in addition to title/subtitle/language/page/style/views.
+Nested objects merge; arrays replace the entire array. To remove all places, send
+`changes={"places": []}`. To reorder or remove one, send the complete desired list.
+`inspect_map` exposes the saved list and diagnostics. A failed render keeps the
+new revision inspectable and leaves previously delivered files intact.
+
+The fixed directory band means changes to places, colours or text reuse pinned
+data without network calls. If a new page or layout extends beyond the snapshot,
+`edit_map` returns `SNAPSHOT_COVERAGE` without creating a revision. Explicitly call
+`refresh_map_data` with the current `base_revision` and the intended changes, e.g.:
+
+```json
+{"page": {"size": "A3", "layout": "guide"}, "title": "Yeni Kadıköy rehberim"}
+```
+
+This is the `changes` argument, not a full tool call. The refresh accepts the same
+editable fields as `edit_map`; arbitrary provider URLs and snapshot paths remain
+forbidden. The refresh job commits exactly one revision after success. Failure,
+cancellation or a conflicting edit retains the existing recipe and dataset.
+Omitting `changes` preserves the previous refresh behavior. Request deduplication
+includes supplied changes.
 
 ## Jobs and files
 

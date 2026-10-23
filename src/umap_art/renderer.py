@@ -109,7 +109,10 @@ def _figure(scene: Scene, *, raster=False):
                       transform=ax.transData, parse_math=False)
         artist.set_gid(item.id)
         artist.set_zorder(len(scene.groups)+1)
-        artist.set_clip_on(False)
+        if item.clip:
+            artist.set_clip_path(clip)
+        else:
+            artist.set_clip_on(False)
         ax.add_artist(artist)
     return fig
 

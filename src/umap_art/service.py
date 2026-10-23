@@ -272,7 +272,7 @@ def _render_impl(
     engine = digest(
         {
             name: file_hash(Path(__file__).with_name(name))
-            for name in ("renderer.py", "scene.py", "styles.py")
+            for name in ("renderer.py", "scene.py", "styles.py", "layout.py")
         }
     )
     font_hash = file_hash(FONT_PATH)
@@ -361,6 +361,10 @@ def _render_impl(
             "scale_denominator": extent.scale_denominator,
             "projection_distortion": extent.projection_distortion,
             "page": spec.page.model_dump(),
+            "style": spec.style.model_dump(mode="json"),
+            "places": [place.model_dump(mode="json") for place in spec.places],
+            "title": spec.title,
+            "subtitle": spec.subtitle,
             "versions": versions,
             "elapsed_seconds": time.perf_counter() - started,
             "diagnostics": [d.model_dump() for d in diagnostics],

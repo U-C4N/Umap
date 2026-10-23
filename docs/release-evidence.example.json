@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "version": "0.2.0",
+  "candidate_sha": null,
+  "ci_run_id": null,
+  "artifact_id": null,
+  "files": {
+    "wheel": {"name": "umap_art-0.2.0-py3-none-any.whl", "sha256": null},
+    "sdist": {"name": "umap_art-0.2.0.tar.gz", "sha256": null}
+  },
+  "manual": {
+    "inkscape": {"status": "pending", "evidence": null},
+    "pilot": {
+      "status": "pending",
+      "results": [
+        {"participant_id": "pilot-1", "status": "pending", "evidence": null},
+        {"participant_id": "pilot-2", "status": "pending", "evidence": null},
+        {"participant_id": "pilot-3", "status": "pending", "evidence": null}
+      ]
+    },
+    "performance": {
+      "status": "pending",
+      "reports": [
+        {"status": "pending", "evidence": null},
+        {"status": "pending", "evidence": null},
+        {"status": "pending", "evidence": null}
+      ]
+    }
+  }
+}
