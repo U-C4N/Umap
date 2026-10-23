@@ -3,10 +3,28 @@
 ## v0.2.0 release implementation — 23 October 2026
 
 The offline demo, portable real-data examples, gallery and release promotion
-checks are implemented. Stable publication remains gated by the actual
-[acceptance protocol](release-acceptance.md): Inkscape, three new users and three
-successful runs on a real 4-core/16-GB reference machine. These results must refer
-to the canonical Ubuntu/Python 3.14 CI wheel, not a local development build.
+checks are implemented. On 23 October 2026 the release owner explicitly waived
+three manual gates for v0.2.0: the Inkscape edit/save/reopen acceptance, the
+three-user pilot and the physical 4-core/16-GB reference-device acceptance.
+All three are recorded as `waived`, not `passed`. Inkscape was opened, but the
+actual SVG editing, saving and reopening sequence was not completed. The user
+pilot and physical reference-device test were not performed.
+
+The full platform matrix, installed-package checks and exact CI artifact/hash
+verification remain required. The published release's exact final CI run,
+artifact ID and package hashes are recorded in its
+[`release-evidence.json` asset](https://github.com/U-C4N/Umap/releases/tag/v0.2.0);
+an earlier candidate's checks do not establish a new candidate's result.
+The [acceptance protocol](release-acceptance.md) preserves
+the original manual procedure for future use. The release evidence records the
+owner's waiver and actual automated results against the canonical
+Ubuntu/Python 3.14 CI wheel. Development-machine timings do not establish a
+reference-device performance guarantee.
+
+The final release-policy and documentation update passed **323 local tests**
+(one live-provider test deselected) on Windows/Python 3.14.6; Ruff passed.
+The report is `.cache/publish-v020-tests.xml`. Both evidence schemas retain
+negative tests for commit, CI provenance, artifact identity and package hashes.
 
 On Windows x64 / Python 3.14.6, **243 tests passed** (one live-provider test
 deselected), and Ruff passed. A clean wheel installation with locked MCP
@@ -17,7 +35,8 @@ projects and the complete MCP lifecycle passed with external networking blocked.
 Local reports are `.cache/release-implementation-tests.xml`,
 `.cache/wheel-demo-locked.json`, `.cache/wheel-demo-core-online.json` and
 `.cache/release-sdist-final.json`. These are development verification records;
-CI provides the canonical candidate packages used for human acceptance.
+CI provides the canonical packages to which release evidence is bound. This
+earlier local record is not a claim that the final candidate's CI has completed.
 
 Automated coverage now includes all three installed demo presets, six themes,
 four atlas views, package-data integrity, JSON/stderr separation, output errors,
@@ -34,17 +53,30 @@ four-view atlas comparison, an offline revision and a moved-ZIP reproduction.
 Poster and guide share a frame; the classic atlas has a larger map area.
 Source data dates and example-marker limitations accompany the images.
 
-The Windows/Python 3.14 development run also passed the new benchmark `--check`:
+**Latest development performance record — 23 October 2026:** three additional
+benchmark `--check` runs produced **two passes and one failure**. In the failing
+run, the warm preview took **5.574 s** and the poster edit took **5.547 s**, both
+above their **5 s** targets. These results supersede any impression that the
+earlier passing run below establishes consistent performance. They were measured
+using candidate `0b585a7`; the map runtime and bundled data are unchanged by the
+subsequent release-documentation changes. The reports remain observations of
+that candidate, not proof of the final package's performance or a physical
+4-core/16-GB acceptance. The failed run is retained as a failure; the owner's
+waiver does not turn it into a pass.
+
+**Earlier development baseline:** the Windows/Python 3.14 run passed `--check`:
 cold export **13.56 s**, warm preview **3.82 s**, cached preview **2.82 s**,
 style edit **3.45 s**, first poster frame **2.79 s**, poster edit **2.64 s**.
 The largest sampled RSS was **370 MiB**. This machine has 24 physical cores and
-about 32 GiB RAM; this run is not the required reference-device acceptance.
+about 32 GiB RAM; this run is not a reference-device acceptance.
 The report is under `.cache/release-implementation-benchmark/`.
 
 The nine-job platform matrix and release provenance/hash rejection tests are
 part of the candidate checks. Release promotion requires the successful run's
 exact artifact ID and verifies package hashes again after the final transfer.
-Missing acceptance, a PR run, a different commit or expired artifact stops it.
+Missing release evidence, an unrecorded waiver, a PR run, a different commit or
+an expired artifact stops promotion. The three manual gates use the explicit
+owner-authorized waiver for this version; they are not reported as successful tests.
 
 ```sh
 uv sync --frozen --all-extras --dev
@@ -61,10 +93,13 @@ uv run python scripts/benchmark.py --check --output .cache/release-benchmark
 Use fresh environment directories for each install. Installation may access
 package indexes; the rendering and revision checks themselves run offline.
 The full [publishing procedure](publishing.md) describes the canonical artifact,
-evidence records and post-publication verification. No stable tag or PyPI upload
-is authorized by local test success alone.
+evidence records and post-publication verification. Local test success alone
+does not establish that the final candidate passed CI or was published.
 
 ### Poster implementation baseline — 13 October 2026
+
+The following is the historical implementation record. Its open-gate statements
+describe 13 October and are superseded for v0.2.0 by the 23 October decision above.
 
 On Windows 11 x64 / Python 3.14.6, **133 tests passed**, with the opt-in live test
 excluded. Ruff passed. The final place-row preflight was additionally checked by
@@ -137,7 +172,7 @@ only its synthetic pinned snapshot. Archive inspection confirmed source packages
 exclude `.cache`, `.venv` and generated `outputs`, and include the new examples
 and gallery. The final MCP/schema/release checks also passed (16 tests).
 
-### Remaining external gates
+### Historical open gates — 13 October 2026
 
 - The nine-configuration GitHub Actions matrix remains configured. This checkout's
   changes have not been submitted to or verified by remote CI in this session.
@@ -151,6 +186,8 @@ and gallery. The final MCP/schema/release checks also passed (16 tests).
 
 Recorded on 12 October 2026. The implementation and local installable packages are
 available; this is not a claim that the human pilot or all release gates have run.
+The historical gates below are not additional v0.2.0 publication requirements;
+the current scope and actual results are recorded at the top of this document.
 
 ## Local automated verification
 
@@ -240,7 +277,7 @@ fixture hash, machine details, dependency versions and separate phase outputs.
 Run `uv run python scripts/benchmark.py`; `.cache/benchmark/latest.json` points to
 the latest report. No public service requests are needed.
 
-## Remaining release gates
+## Historical open gates — v0.1.0
 
 - The repository's CI workflow defines Python 3.12, 3.13 and 3.14 on Windows x64,
   Linux x64 and macOS ARM64. Remote matrix results have not been obtained here.

@@ -1,10 +1,28 @@
 # v0.2.0 kabul yönergesi / release acceptance
 
-Bu kayıt gerçek insan ve referans cihaz kabulü içindir. Otomatik test sonucu veya
-ajanın örneği üretmesi, kullanıcı pilotunun ya da Inkscape kabulünün yerine geçmez.
-Eksik bir sonuç `pending` kalır; tüm kapılar kapanmadan kararlı yayın yapılmaz.
+23 Ekim 2026 yayın kararı: yayın sorumlusu v0.2.0 için üç manuel yayın koşulunu
+açıkça kaldırdı: Inkscape'te düzenleme/kaydetme/yeniden açma kabulü, üç gerçek
+kullanıcı pilotu ve fiziksel 4 çekirdek/16 GB referans cihaz kabulü. Üçü de kanıt
+kaydında `waived` olarak tutulur; yapılmış veya başarılı sayılmaz.
 
-## 1. Aynı adayı kullanın
+Inkscape uygulaması açıldı, ancak SVG düzenleme, kaydetme ve yeniden açma kabulü
+tamamlanmadı. Kullanıcı pilotu ve fiziksel referans cihaz testi yapılmadı.
+Geliştirme bilgisayarındaki üç ek benchmark koşusunun ikisi geçti, biri 5 saniyelik
+önizleme hedeflerini aştı; ayrıntılar [doğrulama kaydında](validation.md).
+Bu ölçümler referans donanım garantisi değildir.
+
+Otomatik testler, platform matrisi, kurulu paket kontrolleri ve aynı CI paketinin
+hash doğrulaması korunur. Aşağıdaki manuel kabul protokolü gelecekte uygulanmak
+üzere saklanmıştır; v0.2.0 için yeniden zorunlu kapı oluşturmaz. `passed`, yalnız
+gerçekten tamamlanmış başarılı kontrolü; `waived`, yayın sorumlusunun kaldırdığı
+koşulu ifade eder.
+
+## Gelecekteki manuel kabul protokolü
+
+Bu protokol uygulanacak bir sürümde aşağıdaki adımları ve ölçütleri kullanın.
+v0.2.0 için yukarıdaki tarihli yayın kararı geçerlidir.
+
+### 1. Aynı adayı kullanın
 
 Yayın sorumlusu başarılı aday CI çalışmasının Ubuntu/Python 3.14 artifact'inden
 wheel ve sdist dosyalarını indirir. Aday commit SHA, CI run ID, artifact ID ve iki
@@ -35,7 +53,7 @@ sonra interneti kapatın. Kurulum süresini kullanıcı görev süresinden ayrı
 `.\acceptance-env\Scripts\python.exe`, Linux/macOS'ta `./acceptance-env/bin/python`
 ile değiştirin. Bu bir komut adı değil, yukarıda doğruladığınız ortamın tam yoludur.
 
-## 2. Üç yeni kullanıcıyla pilot
+### 2. Üç yeni kullanıcıyla pilot
 
 Katılımcılar Umap'i daha önce kullanmamış mimar veya tasarımcılar olmalıdır.
 Kimlikleri `P1`, `P2`, `P3` olarak tutulur; isim veya kişisel bilgi gerekmez.
@@ -73,7 +91,9 @@ Bu eşikler küçük pilot içindir; genel kullanıcı kitlesi için hız garant
 | P2 | pending | pending | pending | pending | pending | pending |
 | P3 | pending | pending | pending | pending | pending | pending |
 
-## 3. Inkscape kabulü
+Tablo gelecekte doldurulacak boş bir şablondur; v0.2.0 için yapılmış pilot kaydı değildir.
+
+### 3. Inkscape kabulü
 
 Üretilen proje klasöründeki `assets/fonts/DejaVuSans.ttf` fontunu kabul bilgisayarına kurun.
 Inkscape sürümünü kaydedin. Poster ve rehber SVG'lerinde ayrı ayrı:
@@ -88,7 +108,7 @@ Inkscape sürümünü kaydedin. Poster ve rehber SVG'lerinde ayrı ayrı:
 Önce/sonra SVG'leri ve ekran görüntülerini kanıt paketine ekleyin. Bu bir geri
 aktarım testi değildir: harici SVG düzenlemesi Umap recipe'sini güncellemez.
 
-## 4. Referans cihaz performansı
+### 4. Referans cihaz performansı
 
 Gerçek 4 fiziksel çekirdek ve 16 GB sınıfı RAM'e sahip cihaz kullanın. CPU modeli,
 işletim sistemi, Python sürümü, güç modu ve takılı RAM'i kaydedin. Güçlü bir cihaza
@@ -117,13 +137,17 @@ işaret ettiği raporu saklayın. Script ağdan harita indirmez. Her koşuda:
 Scriptin kendi raporladığı donanım bilgilerini de kontrol edin. `--check` donanımın
 gerçek referans cihaz olduğunu doğrulamaz ve ağdan ilk edinimin hızını ölçmez.
 
-## 5. Kanıtların teslimi
+### 5. Kanıtların teslimi
 
 Kanıt paketinde aday kimliği, paket hash'leri, Inkscape önce/sonra dosyaları,
 anonim pilot tablosu ve üç benchmark raporu bulunsun. Yayın sorumlusu bunları
 taslak GitHub Release'e yükleyip [yayın yönergesindeki](publishing.md)
 `release-evidence.json` kaydına bağlar. Kayıt doğru paket için doğrulanmadan
 `pending` alanları `passed` yapılmaz.
+
+v0.2.0 kanıt kaydında kaldırılan üç manuel koşul için `waived` ve sahibinin
+23 Ekim 2026 tarihli kararı korunur; bu boş protokol şablonu başarılı kanıt olarak
+eklenmez. Gerçek otomatik sonuçlar ve varsa başarısız ölçümler ayrıca kaydedilir.
 
 Kaynak, demo verisi veya bağımlılık değişirse yeni aday oluşur; eski adayın kabul
 sonuçları yeni pakete otomatik taşınmaz.

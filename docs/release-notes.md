@@ -2,6 +2,16 @@
 
 **Bir semt. Üç anlatım. Düzenlemeye devam edebileceğin tek proje.**
 
+Release acceptance scope: on 23 October 2026 the owner waived the Inkscape
+edit/save/reopen acceptance, the three-user pilot and the physical 4-core/16-GB
+reference-device acceptance for this version. These are recorded as `waived`,
+not `passed`. Inkscape was opened, but the editing acceptance was not completed;
+the user pilot and physical reference-device test were not performed.
+Automated CI, installed-package checks and exact artifact hash verification
+remain required. Three additional development-machine benchmark runs produced
+two passes and one failure; no reference-device timing guarantee is made.
+See the [validation record](validation.md) for the measurements and candidate scope.
+
 - `umap-art demo` creates a real Kadıköy poster and editable project after
   installation, without a repository checkout or network connection.
 - `--preset guide` uses the same three example markers in a numbered guide;
@@ -29,9 +39,10 @@
   blocked in the server and workers, and source-distribution round-trip checks.
 - `scripts/benchmark.py --check` writes its report and exits unsuccessfully if
   any measured performance target fails.
-- Release evidence ties human acceptance to one successful main-branch CI run
-  and its exact wheel/sdist hashes. Publishing transfers those tested files
-  instead of rebuilding them, and rejects missing or expired artifacts.
+- Release evidence ties automated results and the owner's explicit manual-gate
+  waivers to one successful main-branch CI run and its exact wheel/sdist hashes.
+  Publishing transfers those tested files instead of rebuilding them, and rejects
+  missing or expired artifacts.
 
 Existing v1 recipes keep their classic default appearance. The additive fields
 retain schema version `1`, but new recipes require Umap 0.2 or newer. Snapshot
@@ -40,8 +51,9 @@ Poster/guide layouts require the general view. Analytical views use classic.
 
 See [posters](posters.md), [API](api.md), [MCP](mcp.md),
 [release acceptance](release-acceptance.md) and [validation](validation.md).
-Local verification is not a claim that remote CI,
-manual Inkscape acceptance, the user pilot or public release publication has run.
+Final-candidate CI is pending at the time of this record. Local verification
+does not claim that the final CI or public publication has completed; the manual
+checks listed above were waived rather than passed.
 
 # 0.1.0 — local release candidate
 

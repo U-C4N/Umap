@@ -26,9 +26,9 @@ points are illustrative selections, not verified venues. Map data
 
 | Make | Start with | What you get |
 |---|---|---|
-| An architectural study | `umap-art demo --preset atlas` | Four aligned A4 pages for buildings, roads, green spaces and water |
-| A neighborhood guide | `umap-art demo --preset guide` | A4 portrait, blueprint colours and an ordered place directory |
 | A personal city poster | `umap-art demo` | A4 portrait, vintage colours, a centred title and numbered places |
+| A neighborhood guide | `umap-art demo --preset guide` | A4 portrait, blueprint colours and an ordered place directory |
+| An architectural study | `umap-art demo --preset atlas` | Four aligned A4 pages for buildings, roads, green spaces and water |
 | A general city map | [Kadıköy map](examples/kadikoy.json) | A3 landscape with a legend, scale bar and all four map layers |
 
 - **Edit the artwork.** SVG retains semantic groups, individual paths, stable IDs
@@ -49,38 +49,40 @@ model API; an MCP client supplies its own assistant.
 
 ## Quick start
 
-Use Python **3.12–3.14**, the versions configured in the CI matrix. The commands
-below install the v0.2.0 code from this checkout; see the
-[release status](docs/validation.md) for completed checks and pending release gates.
+Use Python **3.12–3.14**. These commands require the published **v0.2.0** package
+on PyPI. See the [v0.2.0 release](https://github.com/U-C4N/Umap/releases/tag/v0.2.0)
+and [release status](docs/validation.md) for publication and verification status.
 
 ```sh
-git clone https://github.com/U-C4N/Umap.git
-cd Umap
-python -m pip install .
+python -m pip install "umap-art==0.2.0"
 umap-art doctor
-umap-art demo --preset atlas --output outputs
+umap-art demo
 ```
 
-Already in the repository? Start at `python -m pip install .`. If your shell cannot
-find `umap-art`, use `python -m umap_art` with the same Python environment.
-The distribution name is `umap-art`; the import is `umap_art`.
+If your shell cannot find `umap-art`, use `python -m umap_art` with the same Python
+environment. The distribution name is `umap-art`; the import is `umap_art`.
+For a source installation, see [Development and verification](#development-and-verification).
 
 The demo works from the installed package, without cloning example files or
-contacting map services. Installation itself may download Python dependencies.
+contacting map services. Its default is an A4 portrait poster in the vintage theme
+at 1:5000. Installation itself may download Python dependencies.
 The command prints the preview, SVG, PDF and recipe paths, and creates a new
 project directory under `outputs`. Open a PNG to inspect the map or an SVG to
-continue in your vector editor. The atlas produces four separate pages.
+continue in your vector editor.
 
-Make a guide or poster from the same saved data, without editing JSON:
+Make a guide, an architectural atlas or a different poster theme from the same
+saved data, without editing JSON:
 
 ```sh
 umap-art demo --preset guide --output outputs
+umap-art demo --preset atlas --output outputs
 umap-art demo --theme neon --output outputs
 umap-art styles
 ```
 
 Use `--preset poster`, `guide` or `atlas`; `--theme` overrides that preset's theme.
 Each run keeps earlier outputs and delivers its own recipe, snapshot and ZIP.
+The atlas produces four separate pages.
 All three presets share a dataset and physical scale; their visible frames need
 not match. The demo is an example of the saved data, not a current geographic survey.
 
@@ -205,10 +207,10 @@ For SVG text editing, install the delivered DejaVu Sans font in your editor;
 
 ## Connect your MCP client
 
-Install the optional adapter from the repository, then start a local workspace:
+Install the optional MCP adapter, then start a local workspace:
 
 ```sh
-python -m pip install ".[mcp]"
+python -m pip install "umap-art[mcp]==0.2.0"
 umap-art mcp --workspace ./map-workspace
 ```
 
@@ -266,7 +268,19 @@ serialized; MCP uses isolated render workers. See the [architecture](docs/archit
 
 ## Development and verification
 
-Install [uv](https://docs.astral.sh/uv/), then run from the repository:
+To install the source checkout, including the optional MCP adapter:
+
+```sh
+git clone https://github.com/U-C4N/Umap.git
+cd Umap
+python -m pip install ".[mcp]"
+umap-art demo
+```
+
+Use `python -m pip install .` if you only need the core package. The checkout also
+contains the additional [example recipes](examples) and the showcase scripts.
+For development checks, install [uv](https://docs.astral.sh/uv/), then run from
+the repository:
 
 ```sh
 uv sync --frozen --all-extras --dev

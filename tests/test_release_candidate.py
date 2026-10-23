@@ -43,10 +43,25 @@ def packages(version=VERSION):
     return {"wheel": wheel.getvalue(), "sdist": source.getvalue()}
 
 
+def with_waivers(manifest, gates=("pilot", "performance")):
+    manifest["schema_version"] = "2"
+    for gate in gates:
+        manifest["manual"][gate] = {
+            "status": "waived", "reason": "Release owner removed this release requirement."}
+    manifest["release_owner_authorization"] = {
+        "actor": "U-C4N", "version": VERSION, "decision": "waive_manual_gates",
+        "gates": list(gates), "authorized_at": "2026-10-23T14:15:16+03:00",
+        "source": "explicit_user_confirmation",
+        "source_reference": "release-owner-confirmation-2026-10-23",
+        "statement": "Evet, bu iki koşulu kaldır ve yayımla",
+    }
+    return manifest
+
+
 @pytest.fixture
-def manifest():
+def manifest(request):
     content = packages()
-    return {
+    value = {
         "schema_version": "1", "version": VERSION, "candidate_sha": SHA,
         "ci_run_id": 123, "artifact_id": 456,
         "files": {
@@ -64,6 +79,7 @@ def manifest():
                 for i in range(3)]},
         },
     }
+    return with_waivers(value) if getattr(request, "param", "1") == "2" else value
 
 
 @pytest.fixture
@@ -97,6 +113,7 @@ def change(value, path, replacement):
     value[path[-1]] = replacement
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_complete_evidence_accepts_only_recorded_candidate(manifest):
     assert candidate.validate_manifest(manifest, VERSION, SHA) == manifest
     with pytest.raises(ValueError, match="SHA"):
@@ -133,6 +150,120 @@ def test_missing_acceptance_and_pending_template_fail_closed(manifest):
         candidate.validate_manifest(template, VERSION, SHA)
 
 
+@pytest.mark.parametrize("gates", [
+    ("pilot",), ("performance",), ("pilot", "performance"),
+    ("inkscape",), ("inkscape", "pilot", "performance"),
+])
+def test_schema_two_accepts_only_explicitly_scoped_waivers(manifest, gates):
+    with_waivers(manifest, gates)
+    assert candidate.validate_manifest(manifest, VERSION, SHA) == manifest
+    for gate in {"inkscape", "pilot", "performance"} - set(gates):
+        assert manifest["manual"][gate]["status"] == "passed"
+
+
+@pytest.mark.parametrize("mutation", ["waiver", "authorization", "waiver_with_results", "inkscape"])
+def test_schema_one_cannot_use_waivers_or_authorization(manifest, mutation):
+    if mutation == "authorization":
+        manifest["release_owner_authorization"] = with_waivers({"manual": {}})[
+            "release_owner_authorization"]
+    elif mutation == "inkscape":
+        manifest["manual"]["inkscape"] = {"status": "waived", "reason": "Owner request"}
+    elif mutation == "waiver":
+        manifest["manual"]["pilot"] = {"status": "waived", "reason": "Owner request"}
+    else:
+        manifest["manual"]["pilot"]["status"] = "waived"
+    with pytest.raises(ValueError):
+        candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("actor", "other-owner"), ("version", "0.3.0"), ("decision", "approved"),
+    ("source", "inferred_user_intent"), ("source_reference", "  "), ("statement", ""),
+    ("gates", []), ("gates", ["pilot"]), ("gates", ["pilot", "pilot", "performance"]),
+    ("gates", ["pilot", "performance", "inkscape"]), ("gates", "pilot,performance"),
+    ("gates", ["pilot", "performance", "ci"]),
+    ("gates", ["pilot", {}]), ("authorized_at", None),
+    ("authorized_at", "2026-10-23"), ("authorized_at", "2026-10-23T14:15:16"),
+    ("authorized_at", "2026-02-30T14:15:16Z"),
+    ("authorized_at", "2026-10-23T14:15:16+24:00"),
+    ("authorized_at", "2026-10-23T14:15:16+01:60"),
+])
+def test_schema_two_rejects_invalid_authorization(manifest, field, value):
+    with_waivers(manifest)
+    manifest["release_owner_authorization"][field] = value
+    with pytest.raises(ValueError):
+        candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("timestamp", ["2026-10-23T11:15:16Z", "2026-10-23T11:15:16.123+00:00"])
+def test_waiver_timestamp_accepts_valid_timezone_formats(manifest, timestamp):
+    with_waivers(manifest)
+    manifest["release_owner_authorization"]["authorized_at"] = timestamp
+    candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("mutation", [
+    "missing_authorization", "missing_statement", "extra_authorization_field", "no_waivers",
+    "blank_reason", "passed_with_reason", "waived_with_results", "inkscape_waived_with_evidence",
+    "unwaived_pilot_incomplete", "pending_template",
+])
+def test_schema_two_never_implies_manual_test_success(manifest, mutation):
+    with_waivers(manifest, () if mutation == "no_waivers" else ("performance",))
+    if mutation == "missing_authorization":
+        del manifest["release_owner_authorization"]
+    elif mutation == "missing_statement":
+        del manifest["release_owner_authorization"]["statement"]
+    elif mutation == "extra_authorization_field":
+        manifest["release_owner_authorization"]["override_ci"] = True
+    elif mutation == "blank_reason":
+        manifest["manual"]["performance"]["reason"] = "  "
+    elif mutation == "passed_with_reason":
+        manifest["manual"]["performance"]["status"] = "passed"
+    elif mutation == "waived_with_results":
+        manifest["manual"]["performance"]["reports"] = []
+    elif mutation == "inkscape_waived_with_evidence":
+        manifest["manual"]["inkscape"]["status"] = "waived"
+    elif mutation == "unwaived_pilot_incomplete":
+        manifest["manual"]["pilot"]["results"] = []
+    elif mutation == "pending_template":
+        manifest = json.loads((ROOT / "docs/release-evidence-waiver.example.json").read_text("utf-8"))
+    with pytest.raises(ValueError):
+        candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("mutation", [
+    "missing_authorization", "scope_mismatch", "extra_gate", "false_passed", "fake_waiver_data",
+])
+def test_all_manual_waivers_still_require_exact_authorization(manifest, mutation):
+    with_waivers(manifest, ("inkscape", "pilot", "performance"))
+    if mutation == "missing_authorization":
+        del manifest["release_owner_authorization"]
+    elif mutation == "scope_mismatch":
+        manifest["release_owner_authorization"]["gates"] = ["pilot", "performance"]
+    elif mutation == "extra_gate":
+        manifest["release_owner_authorization"]["gates"].append("ci")
+    elif mutation == "false_passed":
+        manifest["manual"]["inkscape"] = {"status": "passed", "evidence": None}
+        manifest["release_owner_authorization"]["gates"].remove("inkscape")
+    elif mutation == "fake_waiver_data":
+        manifest["manual"]["inkscape"]["evidence"] = "https://example.com/fake-success"
+    with pytest.raises(ValueError):
+        candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("path,value", [
+    (("candidate_sha",), "b" * 40), (("ci_run_id",), True), (("artifact_id",), 0),
+    (("files", "wheel", "sha256"), "0" * 64),
+    (("files", "sdist", "name"), "umap_art-0.1.0.tar.gz"),
+])
+def test_waivers_do_not_change_candidate_identity_requirements(manifest, path, value):
+    with_waivers(manifest)
+    change(manifest, path, value)
+    with pytest.raises(ValueError):
+        candidate.validate_manifest(manifest, VERSION, SHA)
+
+
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 @pytest.mark.parametrize("field,value", [
     ("id", 999), ("repository", {"full_name": "other/Umap"}),
     ("head_repository", {"full_name": "fork/Umap"}),
@@ -164,6 +295,7 @@ def test_other_workflow_or_ref_is_rejected(manifest, run, path):
         candidate.validate_run(run, manifest)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 @pytest.mark.parametrize("field,value", [
     ("id", 789), ("name", "wrong-package"), ("expired", True),
     ("workflow_run", {"id": 789, "head_sha": SHA}),
@@ -185,12 +317,14 @@ def test_promoted_bytes_are_unchanged_and_unrelated_members_are_ignored(manifest
     assert result == {manifest["files"][kind]["name"]: body for kind, body in content.items()}
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_mismatched_hash_rejects_packages(manifest):
     manifest["files"]["wheel"]["sha256"] = "f" * 64
     with pytest.raises(ValueError, match="hash mismatch"):
         candidate.verified_distributions(artifact_zip(manifest), manifest)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 @pytest.mark.parametrize("kind", ["wheel", "sdist"])
 def test_matching_hash_does_not_excuse_wrong_package_metadata(manifest, kind):
     content = packages()
@@ -233,6 +367,7 @@ def fake_release(manifest, run, artifact):
     return event, FakeGitHub(data)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_release_uses_only_its_own_asset_and_fixed_github_api_paths(manifest, run, artifact):
     event, client = fake_release(manifest, run, artifact)
     result = candidate.collect_candidate(event, client, VERSION, SHA)
@@ -242,6 +377,7 @@ def test_release_uses_only_its_own_asset_and_fixed_github_api_paths(manifest, ru
     assert not any(path.endswith("/zip") for path in client.calls)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_artifact_membership_is_required(manifest, run, artifact):
     event, client = fake_release(manifest, run, artifact)
     client.data["/repos/U-C4N/Umap/actions/runs/123/artifacts?per_page=100"] = {"artifacts": []}
@@ -250,6 +386,7 @@ def test_artifact_membership_is_required(manifest, run, artifact):
     assert not any(path.endswith("/zip") for path in client.calls)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_missing_release_evidence_never_falls_back_to_build(manifest, run, artifact):
     event, client = fake_release(manifest, run, artifact)
     client.data["/repos/U-C4N/Umap/releases/7/assets?per_page=100"] = []
@@ -257,6 +394,7 @@ def test_missing_release_evidence_never_falls_back_to_build(manifest, run, artif
         candidate.collect_candidate(event, client, VERSION, SHA)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_release_tag_cannot_move_after_checkout(manifest, run, artifact):
     event, client = fake_release(manifest, run, artifact)
     client.data[f"/repos/U-C4N/Umap/git/tags/{'c' * 40}"] = {
@@ -276,6 +414,7 @@ def test_redirect_strips_github_token():
                                                   "http://storage.example.com/artifact")
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_provenance_mode_emits_only_validated_download_identity(
         tmp_path, monkeypatch, manifest, run, artifact):
     event, client = fake_release(manifest, run, artifact)
@@ -297,6 +436,7 @@ def test_provenance_mode_emits_only_validated_download_identity(
     assert not any(path.endswith("/zip") for path in client.calls)
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_hash_outputs_are_bound_to_the_written_candidate_files(tmp_path, monkeypatch, manifest):
     output = tmp_path / "accepted-dist"
     github_output = tmp_path / "github-output"
@@ -326,6 +466,7 @@ def test_hash_outputs_are_bound_to_the_written_candidate_files(tmp_path, monkeyp
         assert hashlib.sha256((output / name).read_bytes()).hexdigest() == digest
 
 
+@pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 @pytest.mark.parametrize("mutation", ["changed", "missing", "extra", "directory", "metadata"])
 def test_download_verification_rejects_unaccepted_packages(tmp_path, manifest, mutation):
     dist = tmp_path / "dist"

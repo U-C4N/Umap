@@ -1,9 +1,11 @@
 # Kabul edilmiş v0.2.0 paketini yayımlama
 
-Kararlı sürüm, gerçek Inkscape kabulü, üç kullanıcı pilotu ve referans makinedeki
-üç performans koşusu tamamlanmadan yayımlanmaz. Aday için RC yayımlamak gerekmez:
-GitHub Actions çıktıları ve taslak GitHub Release kullanılır. Yerel test başarısı,
-bu insan ve donanım kanıtlarının yerine geçmez.
+Varsayılan şema 1, gerçek Inkscape kabulü, üç kullanıcı pilotu ve referans makinedeki
+üç performans koşusunun tamamını gerektirir. Yayın sorumlusu açıkça izin verirse
+Inkscape, pilot ve performans koşullarının her biri şema 2 ile `waived` olarak
+kaydedilebilir; bu durum testlerin geçtiği anlamına gelmez. Açıkça kaldırılmamış
+her kabul zorunludur. Aday için RC yayımlamak gerekmez: GitHub Actions çıktıları ve taslak
+GitHub Release kullanılır. Yerel test başarısı insan ve donanım kanıtı değildir.
 
 Yayın akışı **kabul testinde kullanılan wheel ve sdist dosyalarını aynen taşır**.
 Release sırasında yeniden paket üretmez. `release-evidence.json` eksikse, aday
@@ -13,7 +15,8 @@ kimliği uyuşmazsa veya artifact süresi dolmuşsa PyPI yüklemesi durur.
 
 [GitHub Environments](https://github.com/U-C4N/Umap/settings/environments)
 içindeki mevcut `pypi` ortamını ve onay ayarlarını kontrol et. Yayın sorumlusu
-kararlı yayını başlatmadan önce gerçek kabul kanıtlarını incelemelidir.
+kararlı yayını başlatmadan önce gerçek kabul kanıtlarını ve varsa açık istisna
+yetkisini incelemelidir.
 İstenirse **Required reviewers** ile bu kontrol ortam onayına da bağlanabilir;
 bu ek ayar yayın için yeni bir zorunlu onay süreci değildir. Mevcut ortam onayı
 etkinse workflow onu kullanır. `environment: pypi` satırı tek başına reviewer
@@ -84,7 +87,9 @@ Benchmark'ı `--check` ile çalıştır; başarısız koşuyu başarılı diye k
 Her kanıt kaydında aday SHA, wheel SHA-256, uygulama/işletim sistemi bilgileri,
 tarih ve sonuç bulunsun. Performans kayıtları gerçek donanımı, üç ayrı JSON raporu
 ve ölçülen eşikleri içersin. Pilot kimlikleri anonim olabilir; üç ayrı kullanıcı
-oldukları anlaşılmalı. Başarısız ya da eksik kabul varsa kararlı yayın bekler.
+oldukları anlaşılmalı. Başarısız ya da eksik kabul varsa kararlı yayın bekler;
+yalnız aşağıdaki açık istisna süreciyle kaldırılmış manuel kabul koşulları
+bu kuralın dışındadır. Eksik sonuçları `passed` diye kaydetme.
 
 ## 4. Taslak Release'e kanıt dosyasını ekle
 
@@ -114,6 +119,47 @@ ve `passed` durumlarını denetler; ekran görüntülerinin doğruluğunu, üç 
 kişinin katılımını veya donanımın fiziksel özelliklerini bağımsız ölçmüş olmaz.
 Yayın sorumlusu kanıtların içeriğini incelemelidir.
 
+### Yalnız açık yetkiyle manuel kabul istisnası: şema 2
+
+Varsayılan şema 1 ve örnek dosyası `waived` kabul etmez. Yayın sorumlusu `U-C4N`
+bu sürüm için Inkscape, pilot veya performans kabullerinden birini ya da birkaçını
+açıkça kaldırdıysa ayrı
+[`release-evidence-waiver.example.json`](release-evidence-waiver.example.json)
+örneğini kullan. Bu örnek de `pending`/`null` değerleriyle yayını geçemez;
+onay kaydı veya tamamlanmış kabul kanıtı değildir.
+
+Kaldırılan her grubun kaydı tam olarak `{"status":"waived","reason":"..."}`
+biçimindedir. `reason`, hangi doğrulamanın yapılmadığını açıklar. Aynı kayda
+`evidence`, `results` veya `reports` eklenmez. Kaldırılmamış grup şema 1'deki kabul
+şartını korur: Inkscape için gerçek başarılı kabul kanıtı; pilot ve performans
+için üçer başarılı kayıt.
+
+Şema 2 ayrıca tek bir `release_owner_authorization` kaydı ister:
+
+| Alan | Zorunlu içerik |
+|---|---|
+| `actor` | `"U-C4N"` |
+| `version` | Manifestteki sürümle aynı değer |
+| `decision` | `"waive_manual_gates"` |
+| `gates` | Yalnız gerçekten `waived` olan gruplar: `inkscape`, `pilot`, `performance`; boş veya tekrarlı olamaz |
+| `authorized_at` | Gerçek onay zamanı; saat dilimli ISO 8601, örneğin `2026-10-23T14:15:16+03:00` |
+| `source` | `"explicit_user_confirmation"` |
+| `source_reference` | Saklanan onay kaydının boş olmayan kimliği; örneğin `release-owner-confirmation-2026-10-23` |
+| `statement` | Yayın sorumlusunun gerçek, açık onay metni |
+
+`source_reference` için özel sohbet bağlantısı veya gizli içerik yayımlamak
+gerekmez; yayın sorumlusunun sakladığı yerel kayıt kimliği yeterlidir. Bu kayıt
+yetkinin insan tarafından beyanıdır; workflow kişinin kimliğini veya sözlerinin
+doğruluğunu bağımsız doğrulamaz. Açık onay olmadan kaydı oluşturma. Şema 2 en az
+bir istisna ister; tüm koşullar geçtiyse şema 1 kullan.
+
+README ve sürüm notlarında kaldırılan koşulları ve yapılmayan doğrulamaları
+açıkça belirt. Inkscape kabulü kaldırıldıysa gerçek editör doğrulaması yapıldığını
+iddia etme. Gerçek referans makine ölçümü yapılmadıysa böyle bir performans
+garantisi verme. Şema 2; sürüm/tag/aday SHA eşleşmesini, başarılı güvenilen CI'yi,
+artifact kimliğini/üyeliğini/süresini, iki dosyanın hash ve metadata kontrollerini
+değiştirmez. Paket yeniden üretilmez ve yayın workflow'unda ek bir bypass yoktur.
+
 [Taslak GitHub Release](https://github.com/U-C4N/Umap/releases/new) oluştur;
 hedefi tam olarak aday commit, etiketi **`v0.2.0`**, başlığı **`Umap Art 0.2.0`**
 yap. Sürüm notlarını ekle ve dosyayı bu Release'e asset olarak yükle. Dosya adı
@@ -122,7 +168,7 @@ Kaynak depodaki örnek dosya, issue eki veya keyfî bir indirme URL'si kullanıl
 
 ## 5. Yayını başlat
 
-İnsan/donanım kabulü ve kanıt dosyası tamamlandıktan sonra **Publish release**
+Zorunlu kabuller, varsa açık istisna kaydı ve kanıt dosyası tamamlandıktan sonra **Publish release**
 düğmesine bas. Bu adım GitHub Release'i görünür yapar. Varsa mevcut `pypi` ortam
 onayı GitHub Release'in görünürlüğünü değil, sonraki PyPI yüklemesini durdurur.
 
@@ -167,7 +213,7 @@ Release kaydına ekle; geçmiş aday kanıtlarını değiştirme.
 
 | Durum | İşlem |
 |---|---|
-| Kanıt eksik veya kabul başarısız | Kararlı yayını beklet; eksik kabulü tamamla. |
+| Zorunlu kanıt eksik veya kabul başarısız | Kararlı yayını beklet; kabulü tamamla. Manuel kabul istisnası yalnız açık yetkiyle şema 2'de kaydedilebilir. |
 | Artifact yok, süresi dolmuş veya hash farklı | Yükleme durur. Yeni aday paketleriyle kabulü yenile; sessiz rebuild yapma. |
 | Geçici API/CI erişim hatası | Aynı aday ve dosyalarla workflow'u yeniden dene. |
 | Yalnız PyPI job'ı geçici hata verdi, henüz dosya yüklenmedi | **Re-run failed jobs** aynı doğrulanmış artifact'i kullanır. |

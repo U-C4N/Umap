@@ -1,0 +1,26 @@
+{
+  "schema_version": "2",
+  "version": "0.2.0",
+  "candidate_sha": null,
+  "ci_run_id": null,
+  "artifact_id": null,
+  "files": {
+    "wheel": {"name": "umap_art-0.2.0-py3-none-any.whl", "sha256": null},
+    "sdist": {"name": "umap_art-0.2.0.tar.gz", "sha256": null}
+  },
+  "manual": {
+    "inkscape": {"status": "pending", "reason": null},
+    "pilot": {"status": "pending", "reason": null},
+    "performance": {"status": "pending", "reason": null}
+  },
+  "release_owner_authorization": {
+    "actor": "U-C4N",
+    "version": "0.2.0",
+    "decision": "pending",
+    "gates": ["inkscape", "pilot", "performance"],
+    "authorized_at": null,
+    "source": "explicit_user_confirmation",
+    "source_reference": null,
+    "statement": null
+  }
+}

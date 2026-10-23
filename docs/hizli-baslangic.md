@@ -1,24 +1,27 @@
 # Umap hızlı başlangıç
 
-Umap, seçtiğin bölgenin açık harita verisini çevrimiçi alır; PNG, düzenlenebilir SVG
-ve vektör PDF üretir. Hesap veya API anahtarı gerekmez.
+Umap, açık harita verisinden PNG, düzenlenebilir SVG ve vektör PDF üretir.
+Paketle gelen örneği çevrimdışı deneyebilir, kendi bölgenin verisini çevrimiçi
+alabilirsin. Hesap veya API anahtarı gerekmez.
 
-## Kurulum ve ilk mimari set
+## Kurulum ve ilk poster
 
-Depo klasöründe Python 3.12–3.14 ile:
+Python **3.12–3.14** kullan. Bu komutlar PyPI'da yayımlanmış **v0.2.0** paketini
+gerektirir. Yayın ve doğrulama durumunu [v0.2.0 sürüm sayfasından](https://github.com/U-C4N/Umap/releases/tag/v0.2.0)
+ve [doğrulama kaydından](validation.md) kontrol edebilirsin.
 
 ```sh
-python -m pip install '.[mcp]'
+python -m pip install "umap-art==0.2.0"
 umap-art doctor
-umap-art demo --preset atlas --output outputs
+umap-art demo
 ```
 
-MCP kullanmayacaksan `python -m pip install .` yeterlidir. Windows'ta komut
-bulunamazsa aynı Python ortamıyla `python -m umap_art` kullanabilirsin.
+Komut bulunamazsa aynı Python ortamıyla `python -m umap_art` kullanabilirsin.
+Depoyu klonlaman veya JSON düzenlemen gerekmez.
 
 Kurulum Python bağımlılıklarını indirebilir; `demo` paketle gelen Kadıköy verisini
-kullanır ve harita servislerine bağlanmaz. JSON düzenlemeden dolu-boş, yollar,
-yeşil alanlar ve su için dört A4 portre sayfa üretir. Hepsi 1:5000 ölçektedir.
+kullanır ve harita servislerine bağlanmaz. Varsayılan çıktı vintage temasında,
+1:5000 ölçekte bir A4 portre posterdir.
 Komut PNG önizlemelerinin, SVG/PDF'lerin, tarifin ve proje klasörünün yolunu gösterir.
 Sonuçlar `outputs` altında her işlem için ayrı klasöre yazılır.
 
@@ -30,11 +33,13 @@ fontunu kur; teslim paketi bu fontun lisansını da taşır.
 
 ```sh
 umap-art demo --preset guide --output outputs
-umap-art demo --preset poster --output outputs
+umap-art demo --preset atlas --output outputs
 umap-art demo --theme neon --output outputs
 ```
 
-Rehber blueprint, poster vintage temasıyla başlar; `--theme` temayı değiştirir.
+Rehber blueprint, atlas architectural, poster vintage temasıyla başlar;
+`--theme` temayı değiştirir. Atlas dolu-boş, yollar, yeşil alanlar ve su için
+dört ayrı A4 portre sayfa üretir; hepsi 1:5000 ölçektedir.
 Üç örnek de aynı kayıtlı veriyi kullanır. Poster ve rehberdeki üç nokta örnek kullanıcı
 seçimleridir; doğrulanmış işletme veya yürüyüş rotası değildir. Atlasın harita alanı
 daha uzundur: aynı veri ve ölçek, bütün düzenlerin aynı kadrajı gösterdiği anlamına
@@ -65,13 +70,18 @@ Yer adı seçmek bütün ilçenin idari sınırını seçmek anlamına gelmez.
 ## Mimari görünüm seti
 
 ```sh
-umap-art render examples/architecture-atlas.json --output outputs
+umap-art demo --preset atlas --output outputs
 ```
 
 Aynı merkez ve ölçekte dolu-boş, yollar, yeşil alanlar ve su için dört ayrı sayfa
 üretilir. Analiz görünümleri varsayılan `classic` düzenini kullanır.
 
 ## Kendi posterini oluşturma
+
+[Depodaki tarifleri](../examples) indirip kendi bilgilerinle düzenleyebilir veya
+[Python örneğiyle](../README.md#create-a-poster-in-python) başlayabilirsin.
+Aşağıdaki komutlar depo kökünden çalışır; PyPI kurulumu bu dosyaları çalışma
+klasörüne kopyalamaz:
 
 ```sh
 umap-art render examples/kadikoy-poster.json --output outputs
@@ -112,6 +122,7 @@ MCP'de kapsamı büyüten sayfa değişikliği için `refresh_map_data` aracına
 ## MCP
 
 ```sh
+python -m pip install "umap-art[mcp]==0.2.0"
 umap-art mcp --workspace ./map-workspace
 ```
 
@@ -129,3 +140,15 @@ kalmamak için `page.text_mode` değerini `outline` yap; bu modda harfler yola d
 Harita verisindeki eksiklikleri gerçek dünyada yapı veya yol yokluğu olarak
 yorumlama. Kaynak tarihleri ve tanılar `manifest.json` içindedir. Kaynak atıflarını
 paylaşılan çıktılarda koru.
+
+## Geliştiriciler için kaynaktan kurulum
+
+```sh
+git clone https://github.com/U-C4N/Umap.git
+cd Umap
+python -m pip install ".[mcp]"
+umap-art demo
+```
+
+MCP gerekmiyorsa `python -m pip install .` yeterlidir. Testler ve gösteri üretimi
+için [geliştirme yönergesini](../README.md#development-and-verification) izle.

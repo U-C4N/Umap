@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from datetime import datetime
 from email.parser import BytesParser
 from pathlib import Path
 
@@ -50,10 +51,43 @@ def evidence(value):
             "Evidence must be an HTTPS reference")
 
 
+def nonblank(value, label):
+    require(isinstance(value, str) and value.strip() and len(value) <= 2048,
+            f"Invalid {label}")
+
+
+def validate_authorization(value, version, waived):
+    fields(value, {"actor", "version", "decision", "gates", "authorized_at", "source",
+                   "source_reference", "statement"}, "release owner authorization")
+    require(value["actor"] == "U-C4N" and value["version"] == version,
+            "Release owner authorization identity/version mismatch")
+    require(value["decision"] == "waive_manual_gates"
+            and value["source"] == "explicit_user_confirmation",
+            "An explicit release owner waiver is required")
+    gates = value["gates"]
+    require(isinstance(gates, list) and gates and all(isinstance(g, str) for g in gates)
+            and len(set(gates)) == len(gates) and set(gates) == waived,
+            "Authorization gates must exactly match the waived manual gates")
+    for key in ("source_reference", "statement"):
+        nonblank(value[key], f"authorization {key}")
+    timestamp = value["authorized_at"]
+    require(isinstance(timestamp, str) and re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?"
+        r"(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)",
+        timestamp), "Authorization timestamp must include an ISO 8601 timezone")
+    require(datetime.fromisoformat(timestamp).utcoffset() is not None,
+            "Authorization timestamp must include a timezone")
+
+
 def validate_manifest(value, version, commit):
-    fields(value, {"schema_version", "version", "candidate_sha", "ci_run_id", "artifact_id",
-                   "files", "manual"}, "manifest")
-    require(value["schema_version"] == "1", "Unsupported evidence schema")
+    require(isinstance(value, dict) and value.get("schema_version") in ("1", "2"),
+            "Unsupported evidence schema")
+    schema = value["schema_version"]
+    required = {"schema_version", "version", "candidate_sha", "ci_run_id", "artifact_id",
+                "files", "manual"}
+    if schema == "2":
+        required.add("release_owner_authorization")
+    fields(value, required, "manifest")
     require(re.fullmatch(r"\d+\.\d+\.\d+", version) is not None,
             "Only stable release versions are supported")
     require(value["version"] == version, "Evidence version does not match release")
@@ -76,13 +110,19 @@ def validate_manifest(value, version, commit):
                 and sha != "0" * 64, "Invalid distribution SHA-256")
     manual = value["manual"]
     fields(manual, {"inkscape", "pilot", "performance"}, "manual acceptance")
-    fields(manual["inkscape"], {"status", "evidence"}, "Inkscape")
-    require(manual["inkscape"]["status"] == "passed", "Inkscape acceptance is not passed")
-    evidence(manual["inkscape"]["evidence"])
-    for group, key in (("pilot", "results"), ("performance", "reports")):
+    waived = set()
+    for group, key in (("inkscape", "evidence"), ("pilot", "results"), ("performance", "reports")):
         record = manual[group]
+        if schema == "2" and isinstance(record, dict) and record.get("status") == "waived":
+            fields(record, {"status", "reason"}, group)
+            nonblank(record["reason"], f"{group} waiver reason")
+            waived.add(group)
+            continue
         fields(record, {"status", key}, group)
         require(record["status"] == "passed", f"{group} acceptance is not passed")
+        if group == "inkscape":
+            evidence(record[key])
+            continue
         records = record[key]
         require(isinstance(records, list) and len(records) == 3,
                 f"{group} requires exactly three acceptance records")
@@ -96,6 +136,9 @@ def validate_manifest(value, version, commit):
             require(isinstance(identity, str) and identity.strip() and identity not in identities,
                     f"{group} records must have distinct identities")
             identities.add(identity)
+    if schema == "2":
+        require(waived, "Schema 2 requires at least one explicit manual waiver")
+        validate_authorization(value["release_owner_authorization"], version, waived)
     return value
 
 
