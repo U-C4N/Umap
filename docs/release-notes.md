@@ -11,6 +11,10 @@
   bearing, mapped direction, coordinates, reference photograph and optional note.
   Referenced photographs travel with the portable project.
 
+On 2 November 2026 the release owner chose to publish v0.3.0 without waiting for
+manual acceptance results. The Inkscape edit/save/reopen check, three-user pilot
+and physical 4-core, 16 GB benchmark checks are recorded as `waived`.
+
 See the [side-by-side version comparison and examples](../README.md#what-changed-from-v020-to-v030).
 
 # 0.2.0 — personal map posters

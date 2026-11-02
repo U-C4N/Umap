@@ -346,9 +346,10 @@ uv run pytest --live -m live
 
 For v0.3.0, 331 offline tests passed locally on Windows with Python 3.14.
 The candidate was also installed from its wheel and used to produce a 4K field card.
-The release evidence records the nine-environment CI run, distribution hashes and
-the disposition of the Inkscape edit/reopen check, three-user pilot and physical
-reference-machine performance checks. [v0.3.0 release evidence](https://github.com/U-C4N/Umap/releases/download/v0.3.0/release-evidence.json).
+The release owner waived three manual checks for v0.3.0: editing and reopening an SVG
+in Inkscape, a three-user pilot and three benchmark runs on a physical 4-core, 16 GB
+machine. The evidence records these checks as `waived` alongside the nine-environment
+CI result and distribution hashes. [v0.3.0 release evidence](https://github.com/U-C4N/Umap/releases/download/v0.3.0/release-evidence.json).
 
 For bug reports, include the output of `umap-art --version`, the error code and a
 minimal recipe. [Open an issue](https://github.com/U-C4N/Umap/issues).
