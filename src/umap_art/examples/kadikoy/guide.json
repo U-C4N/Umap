@@ -3,7 +3,7 @@
   "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
   "page": {"size": "A4", "orientation": "portrait", "layout": "guide", "dpi": 300,
            "title_size_pt": 22, "subtitle_size_pt": 9},
-  "style": {"theme": "blueprint", "accent": "#FFE09A"},
+  "style": {"theme": "blueprint"},
   "source": {"snapshot": "snapshot.json", "offline": true, "include_ocean": true},
   "title": "Benim Kadıköy’üm",
   "subtitle": "Kişisel semt rehberi",

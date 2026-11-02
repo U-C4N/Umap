@@ -17,5 +17,12 @@ are not included. Geographic coverage has not been independently assessed.
 The three named points are illustrative user selections, not verified venues,
 business recommendations or a walking route. Preserve source attribution when
 sharing the data or generated artwork. Umap's MIT software license does not
-replace the map data license. Bundled DejaVu Sans has its own font license,
-delivered with generated projects under assets/fonts/.
+replace the map data license. Space Grotesk and the DejaVu Sans fallback have
+their own licenses, delivered with generated projects under assets/fonts/.
+
+The field-card example uses corner-study.png, a fictional architectural study
+generated with the built-in ImageGen tool. Its location and bearing demonstrate
+the layout. A survey team supplies its own reference photographs and measurements.
+
+Image generation prompt:
+Use case: photorealistic-natural. One standalone editorial architectural photograph, landscape 3:2. Street-level repeat-photography reference of a fictional quiet corner in Kadıköy, Istanbul. An elegant three-storey warm ivory and muted terracotta late-Ottoman corner building with a projecting timber bay, a dark olive double door and a cobbled side street receding to the right; a small plane tree casts clear afternoon shadows. Camera across the street at eye level, straight verticals, believable weathered materials, sharp daylight architectural documentation, restrained film color, attractive considered geometry. No people, no portraits, no cars, no words, signage, borders, diagrams, captions or watermark. Photo only, full bleed.

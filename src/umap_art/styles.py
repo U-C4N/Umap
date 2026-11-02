@@ -15,16 +15,16 @@ from .models import Feature, Paint, StyleSpec
 
 THEMES = {
     "architectural": {
-        "background": "#FAFAF7", "ink": "#252A30", "accent": "#A84232",
+        "background": "#FFFFFF", "ink": "#252A30", "accent": "#A84232",
         "buildings": {"fill": "#454A4F", "stroke": "#454A4F", "width_mm": 0.06},
         "roads": {"stroke": "#777C80", "width_mm": 0.24},
         "green": {"fill": "#CCD5C6", "stroke": None, "width_mm": 0},
         "water": {"fill": "#D4E3E8", "stroke": None, "width_mm": 0},
     },
     "city_poster": {
-        "background": "#F7ECDC", "ink": "#253A43", "accent": "#9C382D",
+        "background": "#FFFFFF", "ink": "#253A43", "accent": "#9C382D",
         "buildings": {"fill": "#CE765C", "stroke": "#BA654F", "width_mm": 0.06},
-        "roads": {"stroke": "#FBF6EC", "width_mm": 0.35},
+        "roads": {"stroke": "#A28776", "width_mm": 0.35},
         "green": {"fill": "#87A886", "stroke": None, "width_mm": 0},
         "water": {"fill": "#75AABB", "stroke": None, "width_mm": 0},
     },
@@ -36,25 +36,25 @@ THEMES = {
         "water": {"fill": "#D4D4D4", "stroke": None, "width_mm": 0},
     },
     "blueprint": {
-        "background": "#102D50", "ink": "#EAF4FC", "accent": "#FFE09A",
-        "buildings": {"fill": None, "stroke": "#91BDD9", "width_mm": 0.10},
-        "roads": {"stroke": "#EAF4FC", "width_mm": 0.22},
-        "green": {"fill": "#244E66", "stroke": None, "width_mm": 0},
-        "water": {"fill": "#0A203B", "stroke": "#598AAF", "width_mm": 0.12},
+        "background": "#FFFFFF", "ink": "#1C3249", "accent": "#235D83",
+        "buildings": {"fill": None, "stroke": "#7398B1", "width_mm": 0.10},
+        "roads": {"stroke": "#305778", "width_mm": 0.22},
+        "green": {"fill": "#E3ECE8", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#D6E7F1", "stroke": "#668DA5", "width_mm": 0.12},
     },
     "vintage": {
-        "background": "#F1E4CA", "ink": "#4B3829", "accent": "#913E2B",
+        "background": "#FFFFFF", "ink": "#4B3829", "accent": "#913E2B",
         "buildings": {"fill": "#B59A78", "stroke": "#8D7253", "width_mm": 0.06},
         "roads": {"stroke": "#765E47", "width_mm": 0.24},
         "green": {"fill": "#A6AC87", "stroke": None, "width_mm": 0},
         "water": {"fill": "#A5BABB", "stroke": None, "width_mm": 0},
     },
     "neon": {
-        "background": "#111326", "ink": "#F2ECFF", "accent": "#FF78CC",
-        "buildings": {"fill": "#242545", "stroke": "#9B82E8", "width_mm": 0.10},
-        "roads": {"stroke": "#65F4F1", "width_mm": 0.24},
-        "green": {"fill": "#20534F", "stroke": None, "width_mm": 0},
-        "water": {"fill": "#183567", "stroke": None, "width_mm": 0},
+        "background": "#FFFFFF", "ink": "#28233B", "accent": "#AE2879",
+        "buildings": {"fill": "#F1EBFA", "stroke": "#8866BB", "width_mm": 0.10},
+        "roads": {"stroke": "#147C86", "width_mm": 0.24},
+        "green": {"fill": "#C5E8DF", "stroke": None, "width_mm": 0},
+        "water": {"fill": "#CFDFF6", "stroke": None, "width_mm": 0},
     },
 }
 
@@ -81,8 +81,9 @@ def list_styles() -> list[dict[str, Any]]:
          "views": list(VIEW_LAYERS),
          "editable_fields": list(Paint.model_fields),
          "style_fields": ["theme", "background", "ink", "accent", "layers", "order", "rules"],
-         "layouts": ["classic", "poster", "guide"],
-         "layout_views": {"classic": list(VIEW_LAYERS), "poster": ["general"], "guide": ["general"]},
+         "layouts": ["classic", "poster", "guide", "pocket", "field_cards"],
+         "layout_views": {"classic": list(VIEW_LAYERS), **{name: ["general"] for name in
+                          ("poster", "guide", "pocket", "field_cards")}},
          "poster_fields": ["page.layout", "page.title_size_pt", "page.subtitle_size_pt", "places"],
          "max_places": 12,
          "filter_operators": ["all", "any", "eq", "in", "has"]}
@@ -165,6 +166,11 @@ def resolve_paint(feature: Feature, style: StyleSpec, view: str) -> Paint:
         values.update(fill="#252A30", stroke=None, width_mm=0)
     if view == "roads" and style.theme == "city_poster":
         values["stroke"] = THEMES[style.theme]["ink"]
+    if style.theme == "architectural":
+        if view == "roads" and feature.layer == "roads":
+            values.update(stroke="#344D55", width_mm=values["width_mm"]*1.45)
+        elif view in ("green", "water") and feature.layer == view:
+            values["fill"] = "#72977D" if view == "green" else "#6098AC"
     overrides = dict(style.layers.get(feature.layer, {}))
     for rule in style.rules:
         if rule.layer == feature.layer and matches(rule.when, feature.properties):

@@ -1,0 +1,13 @@
+{
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "page": {"size": "A5", "orientation": "portrait", "layout": "field_cards", "title_size_pt": 22},
+  "style": {"theme": "architectural", "ink": "#19353C", "accent": "#BC4825",
+            "layers": {"buildings": {"fill": "#B9C6C2", "stroke": "#A7B7B3"},
+                       "roads": {"stroke": "#697F80"}, "green": {"fill": "#B7CDB8"},
+                       "water": {"fill": "#A7CED2"}}},
+  "source": {"snapshot": "snapshot.json", "offline": true},
+  "title": "Kadıköy",
+  "places": [{"id": "corner-study", "label": "Köşe cephesi", "coordinates": [29.025, 40.985],
+              "bearing": 75, "reference_photo": "corner-study.png",
+              "note": "Kapı eşiğini cumbanın altında ortala.\n\nTemsili mimari görsel. Bu örnek ImageGen ile üretildi."}]
+}

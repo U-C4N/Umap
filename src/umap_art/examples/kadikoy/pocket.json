@@ -1,0 +1,16 @@
+{
+  "area": {"center": [29.025, 40.985], "scale_denominator": 5000},
+  "page": {"size": "A5", "orientation": "portrait", "layout": "pocket", "dpi": 300},
+  "style": {"theme": "vintage"},
+  "source": {"snapshot": "snapshot.json", "offline": true},
+  "title": "Kadıköy",
+  "subtitle": "Cep rehberi · Üç örnek durak",
+  "places": [
+    {"id": "meeting", "label": "Buluşma noktası", "coordinates": [29.026, 40.986],
+     "note": "Yürüyüşe buradan başlayın."},
+    {"id": "corner", "label": "Sokak köşesi", "coordinates": [29.02608, 40.98604],
+     "note": "İlk durağa yakın olan ikinci işaretin bağlantı çizgisini izleyin."},
+    {"id": "view", "label": "Gözlem noktası", "coordinates": [29.023, 40.9845],
+     "note": "Son durakta saha notlarınızı kaydedin."}
+  ]
+}

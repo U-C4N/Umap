@@ -32,11 +32,13 @@ def parser():
             help="Render a saved recipe" if name == "render" else "Explicitly refresh map data",
         )
         p.add_argument("recipe", type=Path)
+        p.add_argument("--places-csv", type=Path, help="Replace places with a local UTF-8 CSV")
         p.add_argument("--output", type=Path, default=Path("outputs"))
         p.add_argument("--json", action="store_true")
     p = commands.add_parser("demo", help="Render a bundled Kadıköy example completely offline")
     p.add_argument("--preset", choices=PRESETS, default="poster")
     p.add_argument("--theme", choices=THEMES, help="Override the preset's theme")
+    p.add_argument("--places-csv", type=Path, help="Replace the demo places with a local UTF-8 CSV")
     p.add_argument("--output", type=Path, default=Path("outputs"))
     p.add_argument("--json", action="store_true")
     p = commands.add_parser("locations", help="Find place candidates")
@@ -71,12 +73,14 @@ def main(argv=None) -> int:
                 from .demo import render_demo
 
                 print("Rendering bundled Kadıköy data offline…", file=sys.stderr)
-                result = render_demo(args.preset, theme=args.theme, output_dir=args.output)
+                result = render_demo(args.preset, theme=args.theme, output_dir=args.output,
+                                     places_csv=args.places_csv)
             else:
                 from .service import render
 
                 print("Preparing map and outputs…", file=sys.stderr)
-                result = render(args.recipe, output_dir=args.output, refresh=args.command == "refresh")
+                result = render(args.recipe, output_dir=args.output, refresh=args.command == "refresh",
+                                places_csv=args.places_csv)
             if args.json:
                 _emit(result.model_dump(mode="json"))
             elif args.command == "demo":

@@ -10,6 +10,7 @@ import json
 import math
 import re
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,15 @@ from .models import Diagnostic, MapSpec, Paint
 from .styles import LABELS, THEMES, VIEW_LAYERS, resolve_paint, validate_style
 
 PT_PER_MM = 72 / 25.4
-FONT_PATH = Path(__file__).parent / "assets" / "fonts" / "DejaVuSans.ttf"
+FONT_PATH = Path(__file__).parent / "assets" / "fonts" / "SpaceGrotesk-Regular.ttf"
+BOLD_FONT_PATH = FONT_PATH.with_name("SpaceGrotesk-Bold.ttf")
+
+
+@lru_cache(maxsize=4)
+def _glyphs(font_path):
+    from matplotlib.ft2font import FT2Font
+
+    return frozenset(FT2Font(str(font_path)).get_charmap())
 
 
 @dataclass(frozen=True)
@@ -59,12 +68,26 @@ class SceneText:
     color: str = "#252A30"
     align: str = "left"
     clip: bool = False
+    bold: bool = False
+
+    @property
+    def font_path(self):
+        primary = BOLD_FONT_PATH if self.bold else FONT_PATH
+        if all(ord(c) in _glyphs(primary) for c in self.text):
+            return primary
+        return FONT_PATH.with_name("DejaVuSans-Bold.ttf" if self.bold else "DejaVuSans.ttf")
 
 
 @dataclass(frozen=True)
 class SceneGroup:
     id: str
     paths: tuple[ScenePath, ...]
+
+
+@dataclass(frozen=True)
+class SceneImage:
+    path: str  # Content-addressed path relative to the portable recipe.
+    box: tuple[float, float, float, float]
 
 
 @dataclass(frozen=True)
@@ -78,11 +101,17 @@ class Scene:
     scale_denominator: float
     crs: str
     diagnostics: tuple[Diagnostic, ...] = ()
+    image: SceneImage | None = None
 
     def semantic_hash(self) -> str:
         # Diagnostics are delivery information, not visual scene content.
         data = asdict(self)
         data.pop("diagnostics")
+        if not self.image:
+            data.pop("image")
+        for item in data["texts"]:
+            if not item["bold"]:
+                item.pop("bold")
         return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False,
                                         separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
@@ -144,15 +173,13 @@ def _measure(text: SceneText):
     from matplotlib.textpath import TextToPath
 
     return TextToPath().get_text_width_height_descent(
-        text.text, FontProperties(fname=str(FONT_PATH), size=text.size_pt), ismath=False)
+        text.text, FontProperties(fname=str(text.font_path), size=text.size_pt), ismath=False)
 
 
 def _preflight_text(text: SceneText, max_width: float):
-    from matplotlib.ft2font import FT2Font
-
     if any(c in text.text for c in "\r\n\t"):
         raise UmapError("TEXT_OVERFLOW", "Page labels must be single-line strings", {"id": text.id})
-    cmap = FT2Font(str(FONT_PATH)).get_charmap()
+    cmap = _glyphs(text.font_path)
     missing = sorted({c for c in text.text if ord(c) not in cmap})
     if missing:
         raise UmapError("MISSING_GLYPH", "The bundled font cannot display all label characters",
@@ -194,17 +221,59 @@ def _contrast_ink(color):
     return "#000000" if luminance > 0.179 else "#FFFFFF"
 
 
-def _poster_content(prepared, spec, layout, transform, ink, accent, diagnostics):
-    """Fixed bands, editable numbered markers, and a two-column place directory."""
+def place_anchors(prepared, spec):
     from pyproj import Transformer
 
+    project = Transformer.from_crs("EPSG:4326", prepared.crs, always_xy=True)
+    xmin, ymin, xmax, ymax = prepared.bounds
+    mx, my, mw, mh = (v * PT_PER_MM for v in spec.page.frame_mm)
+    anchors = {}
+    for place in spec.places:
+        px, py = project.transform(*place.coordinates)
+        if not (xmin <= px <= xmax and ymin <= py <= ymax):
+            raise UmapError("PLACE_OUTSIDE_MAP", "Place lies outside the map frame",
+                            {"place_id": place.id, "coordinates": list(place.coordinates)})
+        anchors[place.id] = (round(mx+(px-xmin)*mw/(xmax-xmin), 9),
+                             round(my+(py-ymin)*mh/(ymax-ymin), 9))
+    return anchors
+
+
+def _marker_positions(anchors, frame, radius):
+    """Keep isolated markers fixed; reserve their space before arranging clusters."""
+    gap = 2*radius + 1
+    clustered = {key for key, xy in anchors.items() if any(
+        other != key and math.dist(xy, pos) < gap for other, pos in anchors.items())}
+    positions = {key: xy for key, xy in anchors.items() if key not in clustered}
+    mx, my, mw, mh = frame
+    for key in sorted(clustered):
+        ax, ay = anchors[key]
+        for ring in range(1, 2*len(clustered)+3):
+            count = 8*ring
+            for step in range(count):
+                angle = 2*math.pi*step/count
+                x, y = ax+ring*gap*math.cos(angle), ay+ring*gap*math.sin(angle)
+                if (mx+radius <= x <= mx+mw-radius and my+radius <= y <= my+mh-radius
+                        and all(math.dist((x, y), xy) >= gap-1e-6 for xy in positions.values())
+                        and all(math.dist((x, y), xy) >= radius+2 for xy in anchors.values())):
+                    positions[key] = (x, y)
+                    break
+            if key in positions:
+                break
+        else:
+            raise UmapError("MARKER_LAYOUT_FULL", "Map frame is too small to separate markers",
+                            {"place_id": key})
+    return positions
+
+
+def _poster_content(prepared, spec, layout, ink, accent, diagnostics):
+    """Fixed bands, editable numbered markers, and an optional place directory."""
     tx, ty, tw, th = (v * PT_PER_MM for v in layout.title_band_mm)
     centered = spec.page.layout == "poster"
     align = "center" if centered else "left"
     title_size = spec.page.title_size_pt or 24.0
     subtitle_size = spec.page.subtitle_size_pt or 9.0
     title = SceneText("title", spec.title, tx+tw/2 if centered else tx,
-                      ty+th-2*PT_PER_MM-title_size, title_size, ink, align)
+                      ty+th-2*PT_PER_MM-title_size, title_size, ink, align, bold=True)
     subtitle = SceneText("subtitle", spec.subtitle, title.x, ty+3*PT_PER_MM,
                          subtitle_size, ink, align)
     texts = [title, subtitle]
@@ -218,35 +287,46 @@ def _poster_content(prepared, spec, layout, transform, ink, accent, diagnostics)
         if title.y-descent <= subtitle.y+height:
             raise UmapError("TEXT_OVERFLOW", "Title and subtitle overlap in the fixed title band")
 
-    lx, ly, lw, lh = (v * PT_PER_MM for v in layout.places_band_mm)
     radius = 2.5*PT_PER_MM
-    positions, markers = [], []
-    project = Transformer.from_crs("EPSG:4326", prepared.crs, always_xy=True)
-    xmin, ymin, xmax, ymax = prepared.bounds
+    markers, leaders, directory = [], [], []
+    anchors = place_anchors(prepared, spec)
     mx, my, mw, mh = (v * PT_PER_MM for v in layout.frame_mm)
+    positions = _marker_positions(anchors, (mx, my, mw, mh), radius)
     for index, place in enumerate(spec.places):
-        px, py = project.transform(*place.coordinates)
-        if not (xmin <= px <= xmax and ymin <= py <= ymax):
-            raise UmapError("PLACE_OUTSIDE_MAP", "Place lies outside the map frame",
-                            {"place_id": place.id, "coordinates": list(place.coordinates)})
-        x, y = transform(px, py)
-        for previous_id, previous_x, previous_y in positions:
-            if math.hypot(x-previous_x, y-previous_y) < 2*radius:
-                diagnostics.append(Diagnostic(code="PLACE_OVERLAP", feature_id=place.id,
-                    message=f"Place {place.id!r} overlaps {previous_id!r}; coordinates were retained"))
+        x, y = positions[place.id]
+        anchor = anchors[place.id]
+        if anchor != (x, y):
+            leaders.append(ScenePath(stable_id(place.id, "leader"), (anchor, (x, y)),
+                                     (1, 2), ScenePaint(stroke=ink, width_pt=0.8)))
+            leaders.append(_circle(stable_id(place.id, "anchor"), *anchor, 1.6, ScenePaint(fill=ink)))
+            diagnostics.append(Diagnostic(code="PLACE_OVERLAP", severity="info", feature_id=place.id,
+                               message="Number moved; the leader points to the original location"))
         if x-radius < mx or x+radius > mx+mw or y-radius < my or y+radius > my+mh:
             diagnostics.append(Diagnostic(code="PLACE_CLIPPED", feature_id=place.id,
                 message="The marker touches the map edge and is clipped; coordinates were retained"))
-        positions.append((place.id, x, y))
         markers.append(_circle(stable_id(place.id, "place-marker"), x, y, radius,
                                ScenePaint(fill=accent, stroke=ink, width_pt=0.5)))
         texts.append(SceneText(stable_id(place.id, "place-number"), str(index+1),
-                               x, y-2.5, 7, _contrast_ink(accent), "center", True))
-        # Fill down each six-row column; ordering remains explicit in the recipe.
-        column, row = divmod(index, 6)
-        label = SceneText(stable_id(place.id, "place-label"), f"{index+1:02d}  {place.label}",
-                          lx+column*(lw/2+3*PT_PER_MM), ly+lh-(5+row*5)*PT_PER_MM, 8, ink)
-        _, label_height, label_descent = _preflight_text(label, lw/2-3*PT_PER_MM)
+                               x, y-2.5, 7, _contrast_ink(accent), "center", True, bold=True))
+        if not layout.places_band_mm:
+            continue
+        lx, ly, lw, lh = (v * PT_PER_MM for v in layout.places_band_mm)
+        if len(spec.places) <= 3 and lw >= 170*PT_PER_MM:
+            # A short walking guide gets a generous, horizontal index.
+            cell = lw / len(spec.places)
+            left = lx + index*cell
+            directory.append(_rect(stable_id(place.id, "index-rule"), left, ly+lh-15,
+                                   cell-9, 0.8, ScenePaint(fill=accent)))
+            texts.append(SceneText(stable_id(place.id, "index-number"), f"{index+1:02d}", left,
+                                   ly+lh-39, 15, accent, bold=True))
+            label = SceneText(stable_id(place.id, "place-label"), place.label, left, ly+lh-57, 10, ink)
+            label_width = cell-9
+        else:
+            column, row = divmod(index, (len(spec.places)+1)//2)
+            label = SceneText(stable_id(place.id, "place-label"), f"{index+1:02d}  {place.label}",
+                              lx+column*(lw/2+3*PT_PER_MM), ly+lh-(5+row*5)*PT_PER_MM, 8, ink)
+            label_width = lw/2-3*PT_PER_MM
+        _, label_height, label_descent = _preflight_text(label, label_width)
         if label_height > 4*PT_PER_MM or label_descent > PT_PER_MM:
             raise UmapError("TEXT_OVERFLOW", "Place label exceeds its fixed directory row",
                             {"id": label.id})
@@ -269,7 +349,32 @@ def _poster_content(prepared, spec, layout, transform, ink, accent, diagnostics)
                             m+PT_PER_MM, 7, ink)
     _preflight_text(attribution, width)
     texts.append(attribution)
-    return [SceneGroup("places", tuple(markers)), SceneGroup("decorations", tuple(decorations))], texts
+    groups = [SceneGroup("place-leaders", tuple(leaders))] if leaders else []
+    return groups + [SceneGroup("places", tuple(markers)),
+                     SceneGroup("decorations", tuple(decorations+directory))], texts
+
+
+def _sheet_identity(spec, view, frame, ink, accent):
+    """Print a consistent series line and plate number above the map or title."""
+    x, y, width, height = frame
+    paths = [_rect("map-keyline", x, y, width, height, ScenePaint(stroke=ink, width_pt=0.5, opacity=0.5))]
+    if spec.page.margin_mm < 9:
+        return SceneGroup("sheet-identity", tuple(paths)), []
+    is_tr = spec.language == "tr"
+    series = {"poster": ("KENT POSTERİ", "CITY POSTER"), "guide": ("SEMT REHBERİ", "FIELD GUIDE"),
+              "pocket": ("CEP REHBERİ", "POCKET GUIDE"), "classic": ("KENT ATLASI", "CITY ATLAS")}
+    page_h = spec.page.dimensions_mm[1]*PT_PER_MM
+    baseline = page_h - spec.page.margin_mm*PT_PER_MM + 5
+    mark = series[spec.page.layout][0 if is_tr else 1]
+    count = len(spec.views)
+    number = spec.views.index(view)+1 if view in spec.views else 1
+    if spec.page.layout == "pocket":
+        count = 2
+    folio = f"{number:02} / {count:02}"
+    paths.append(_rect("edition-bar", x, baseline, 11, 4, ScenePaint(fill=accent)))
+    return SceneGroup("sheet-identity", tuple(paths)), [
+        SceneText("edition", f"U-MAP   /   {mark}", x+16, baseline, 7, ink, bold=True),
+        SceneText("sheet-number", folio, x+width, baseline, 7, ink, "right", bold=True)]
 
 
 def compile_scene(prepared: Any, spec: MapSpec, view: str) -> Scene:
@@ -277,7 +382,7 @@ def compile_scene(prepared: Any, spec: MapSpec, view: str) -> Scene:
     if view not in VIEW_LAYERS:
         raise UmapError("INVALID_VIEW", f"Unknown view: {view}")
     if not FONT_PATH.is_file():
-        raise UmapError("FONT_UNAVAILABLE", "The bundled DejaVu Sans font is missing")
+        raise UmapError("FONT_UNAVAILABLE", "The bundled Space Grotesk font is missing")
     validate_style(spec.style)
     w, h = (v * PT_PER_MM for v in spec.page.dimensions_mm)
     layout = resolve_layout(spec.page)
@@ -294,10 +399,8 @@ def compile_scene(prepared: Any, spec: MapSpec, view: str) -> Scene:
 
     theme, labels = THEMES[spec.style.theme], LABELS[spec.language]
     background = spec.style.background or theme["background"]
-    page_background = ("#FFFFFF" if spec.page.layout == "classic" and
-                       spec.style.theme in ("architectural", "city_poster") else background)
     groups = [SceneGroup("page", (_rect("page-background", 0, 0, w, h,
-                                       ScenePaint(fill=page_background)),)),
+                                       ScenePaint(fill=background)),)),
               SceneGroup("map-background", (_rect("map-background-fill", x, y, fw, fh,
                                                  ScenePaint(fill=background)),))]
     diagnostics = list(prepared.diagnostics)
@@ -323,20 +426,29 @@ def compile_scene(prepared: Any, spec: MapSpec, view: str) -> Scene:
 
     m = spec.page.margin_mm * PT_PER_MM
     ink = spec.style.ink or theme["ink"]
+    if spec.page.layout == "field_cards":
+        attribution = SceneText("attribution", _attribution(spec, prepared), m, m, 6.5, ink)
+        _preflight_text(attribution, fw)
+        return Scene(view, w, h, (x, y, fw, fh), tuple(groups), (attribution,),
+                     float(prepared.scale_denominator), prepared.crs, tuple(diagnostics))
+    sheet_group, edition = _sheet_identity(spec, view, (x, y, fw, fh), ink,
+                                          spec.style.accent or theme["accent"])
+    groups.append(sheet_group)
     if spec.page.layout != "classic":
-        decorations, texts = _poster_content(prepared, spec, layout, transform, ink,
+        decorations, texts = _poster_content(prepared, spec, layout, ink,
             spec.style.accent or theme["accent"], diagnostics)
         groups.extend(decorations)
+        texts.extend(edition)
         return Scene(view, w, h, (x, y, fw, fh), tuple(groups), tuple(texts),
                      float(prepared.scale_denominator), prepared.crs, tuple(diagnostics))
     title_size = spec.page.title_size_pt or min(
         18.0, (spec.page.header_mm * PT_PER_MM - 4*PT_PER_MM - 9) / 1.6)
-    title = SceneText("title", spec.title, m, h-m-title_size, title_size, ink)
+    title = SceneText("title", spec.title, m, h-m-title_size, title_size, ink, bold=True)
     # The view belongs in a consistent position whether or not a subtitle exists.
     subtitle_text = " · ".join(t for t in (spec.subtitle, labels[view]) if t)
     subtitle = SceneText("subtitle", subtitle_text, m,
                          y+fh+4*PT_PER_MM, spec.page.subtitle_size_pt or 9, ink)
-    texts = [title, subtitle]
+    texts = [title, subtitle, *edition]
     _preflight_text(title, fw)
     _preflight_text(subtitle, fw)
     if title.y - title.size_pt * 0.25 <= subtitle.y + subtitle.size_pt:
@@ -352,8 +464,9 @@ def compile_scene(prepared: Any, spec: MapSpec, view: str) -> Scene:
             continue
         paint = present[layer]
         swatch_paint = ScenePaint(fill=paint.fill or paint.stroke, stroke=None)
-        decoration.append(_rect(f"legend-swatch-{layer}", legend_x, legend_y-1,
-                                3*PT_PER_MM, 2*PT_PER_MM, swatch_paint))
+        swatch_height = 0.65 if layer == "roads" else 2
+        decoration.append(_rect(f"legend-swatch-{layer}", legend_x, legend_y,
+                                3*PT_PER_MM, swatch_height*PT_PER_MM, swatch_paint))
         label = SceneText(f"legend-label-{layer}", labels[layer],
                           legend_x+4.5*PT_PER_MM, legend_y, 7, ink)
         width, _, _ = _preflight_text(label, legend_max)

@@ -38,21 +38,31 @@ class AreaSpec(Model):
 
 
 class PageSpec(Model):
-    size: Literal["A3", "A4"] = "A3"
+    size: Literal["A3", "A4", "A5"] = "A3"
     orientation: Literal["landscape", "portrait"] = "landscape"
     dpi: int = Field(default=300, ge=72, le=600)
+    png_resolution: Literal["auto", "4k", "print"] = "auto"
     margin_mm: float = Field(default=10, ge=5, le=30)
     header_mm: float = Field(default=20, ge=15, le=40)
     footer_mm: float = Field(default=16, ge=12, le=35)
     text_mode: Literal["editable", "outline"] = "editable"
-    layout: Literal["classic", "poster", "guide"] = "classic"
+    layout: Literal["classic", "poster", "guide", "pocket", "field_cards"] = "classic"
     title_size_pt: float | None = Field(default=None, ge=8, le=48)
     subtitle_size_pt: float | None = Field(default=None, ge=7, le=24)
 
     @property
     def dimensions_mm(self) -> tuple[float, float]:
-        w, h = (297.0, 420.0) if self.size == "A3" else (210.0, 297.0)
+        w, h = {"A3": (297., 420.), "A4": (210., 297.), "A5": (148., 210.)}[self.size]
         return (h, w) if self.orientation == "landscape" else (w, h)
+
+    @property
+    def png_dpi(self) -> float:
+        dpi_4k = 3840 * 25.4 / max(self.dimensions_mm)
+        if self.png_resolution == "4k":
+            return dpi_4k
+        if self.png_resolution == "auto" and self.dpi == 300:
+            return max(dpi_4k, self.dpi)
+        return self.dpi
 
     @property
     def frame_mm(self) -> tuple[float, float, float, float]:
@@ -137,6 +147,10 @@ class Place(Model):
     id: str = Field(min_length=1, max_length=80)
     label: str = Field(min_length=1, max_length=180)
     coordinates: tuple[float, float]
+    note: str = Field(default="", max_length=240, exclude_if=lambda value: not value)
+    bearing: float | None = Field(default=None, ge=0, lt=360, exclude_if=lambda value: value is None)
+    reference_photo: str | None = Field(default=None, min_length=1, max_length=1024,
+                                        exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_place(self):
@@ -173,7 +187,13 @@ class MapSpec(Model):
         if len({place.id for place in self.places}) != len(self.places):
             raise ValueError("Place ids must be unique")
         if self.page.layout != "classic" and self.views != ["general"]:
-            raise ValueError("Poster and guide layouts require views=['general']")
+            raise ValueError("Place layouts require views=['general']")
+        if self.page.layout in ("pocket", "field_cards"):
+            if (self.page.size, self.page.orientation) != ("A5", "portrait"):
+                raise ValueError("Pocket guides and field cards require A5 portrait")
+        if self.page.layout == "field_cards":
+            if not self.places or any(p.bearing is None or not p.reference_photo for p in self.places):
+                raise ValueError("Field cards require a place, bearing and reference_photo for every card")
         if self.places and self.page.layout == "classic":
             raise ValueError("Places require a poster or guide layout")
         return self

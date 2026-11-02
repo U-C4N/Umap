@@ -30,6 +30,17 @@ SHA = "a" * 40
 VERSION = "0.2.0"
 
 
+@pytest.fixture
+def candidate_checkout(tmp_path, monkeypatch):
+    """Run historical release fixtures against metadata from that same tag."""
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\nname="umap-art"\nversion="{VERSION}"\n', encoding="utf-8")
+    package = tmp_path / "src" / "umap_art"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(f'__version__ = "{VERSION}"\n', encoding="utf-8")
+    monkeypatch.setattr(candidate, "__file__", str(tmp_path / "scripts" / "check_release_candidate.py"))
+
+
 def packages(version=VERSION):
     metadata = f"Metadata-Version: 2.4\nName: umap-art\nVersion: {version}\n".encode()
     wheel = io.BytesIO()
@@ -416,7 +427,7 @@ def test_redirect_strips_github_token():
 
 @pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
 def test_provenance_mode_emits_only_validated_download_identity(
-        tmp_path, monkeypatch, manifest, run, artifact):
+        tmp_path, monkeypatch, manifest, run, artifact, candidate_checkout):
     event, client = fake_release(manifest, run, artifact)
     event_path = tmp_path / "event.json"
     event_path.write_text(json.dumps(event))
@@ -437,7 +448,7 @@ def test_provenance_mode_emits_only_validated_download_identity(
 
 
 @pytest.mark.parametrize("manifest", ["1", "2"], indirect=True)
-def test_hash_outputs_are_bound_to_the_written_candidate_files(tmp_path, monkeypatch, manifest):
+def test_hash_outputs_are_bound_to_the_written_candidate_files(tmp_path, monkeypatch, manifest, candidate_checkout):
     output = tmp_path / "accepted-dist"
     github_output = tmp_path / "github-output"
     download = tmp_path / "download"

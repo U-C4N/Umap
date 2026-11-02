@@ -30,10 +30,13 @@ def inspect_distributions(directory: Path) -> Path:
     sources = sorted(directory.glob("umap_art-*.tar.gz"))
     if len(wheels) != 1 or len(sources) != 1:
         raise RuntimeError("Build exactly one Umap wheel and source distribution before this check")
-    needed = {"umap_art/assets/fonts/DejaVuSans.ttf", "umap_art/assets/fonts/LICENSE_DEJAVU",
+    needed = {*("umap_art/assets/fonts/" + name for name in (
+                "SpaceGrotesk-Regular.ttf", "SpaceGrotesk-Bold.ttf", "LICENSE_SPACE_GROTESK",
+                "DejaVuSans.ttf", "DejaVuSans-Bold.ttf", "LICENSE_DEJAVU")),
               "umap_art/sources/overture.py", "umap_art/mcp_server.py", "umap_art/cli.py",
               "umap_art/demo.py", *("umap_art/examples/kadikoy/" + name for name in
-                ("poster.json", "guide.json", "atlas.json", "snapshot.json", "DATA-LICENSES.txt"))}
+                ("poster.json", "guide.json", "atlas.json", "pocket.json", "field-cards.json",
+                 "corner-study.png", "snapshot.json", "DATA-LICENSES.txt"))}
     with zipfile.ZipFile(wheels[0]) as archive:
         names = set(archive.namelist())
         if not needed <= names:
@@ -192,10 +195,12 @@ def verify_installed(work_dir: Path, *, core_only=False) -> dict:
             os.environ.pop(name)
     runpy.run_path(str(guard_path))
     demos = {}
-    for preset in ("poster", "guide", "atlas"):
+    for preset in ("poster", "guide", "atlas", "pocket", "field-cards"):
         demo = cli_json(work_dir, "demo", "--preset", preset, "--output",
                         work_dir / "demo" / preset, "--json")
-        expected = {"figure_ground", "roads", "green", "water"} if preset == "atlas" else {"general"}
+        expected = {"atlas": {"figure_ground", "roads", "green", "water"},
+                    "pocket": {"pocket-front", "pocket-back"},
+                    "field-cards": {"field-card-01"}}.get(preset, {"general"})
         assert set(demo["scene_hashes"]) == expected
         assert {a["mime_type"] for a in demo["artifacts"]} >= {
             "image/png", "image/svg+xml", "application/pdf"}

@@ -1,3 +1,18 @@
+# 0.3.0 — pocket guides and repeat photography
+
+- Import up to twelve places from UTF-8 CSV, with row-specific validation.
+- Crowded map numbers separate automatically. Leader lines mark the original locations.
+- Posters, guides and atlas pages gain series identification, stronger type and
+  map frames. All print layouts use Space Grotesk on a solid white background
+  by default. Short directories use a horizontal index, and the architectural
+  atlas has higher-contrast analytical layers. Standard PNGs export at 4K or larger.
+- The A5 pocket guide pairs a map with a reverse-side directory and notes in one PDF.
+- Aynı Kadraj produces one A5 field card per camera station. Cards carry a true
+  bearing, mapped direction, coordinates, reference photograph and optional note.
+  Referenced photographs travel with the portable project.
+
+See the [side-by-side version comparison and examples](../README.md#what-changed-from-v020-to-v030).
+
 # 0.2.0 — personal map posters
 
 **Bir semt. Üç anlatım. Düzenlemeye devam edebileceğin tek proje.**

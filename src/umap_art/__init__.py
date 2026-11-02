@@ -2,13 +2,13 @@
 
 from .models import MapSpec, RenderResult
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
-def render(spec: MapSpec, *, output_dir="outputs") -> RenderResult:
+def render(spec: MapSpec, *, output_dir="outputs", places_csv=None) -> RenderResult:
     from .service import render as _render
 
-    return _render(spec, output_dir=output_dir)
+    return _render(spec, output_dir=output_dir, places_csv=places_csv)
 
 
 __all__ = ["MapSpec", "RenderResult", "render"]

@@ -20,7 +20,8 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw, ImageFont
 
 from umap_art import MapSpec, render
-from umap_art.scene import FONT_PATH, stable_id
+from umap_art import __version__ as version
+from umap_art.scene import BOLD_FONT_PATH, FONT_PATH, stable_id
 from umap_art.storage import atomic_json, digest, file_hash
 from umap_art.styles import THEMES
 
@@ -46,7 +47,7 @@ def svg_contract(path: Path) -> dict:
         return {e.attrib["id"]: [p.attrib.get("d") for p in e.iter(f"{SVG}path")]
                 for e in group if "id" in e.attrib}
 
-    layers = {name: geometry(elements.get(name)) for name in LAYER_NAMES}
+    layers = {name: geometry(elements.get(f"layer-{name}")) for name in LAYER_NAMES}
     text = {key: "".join(e.itertext()).strip() for key, e in elements.items()
             if any(True for _ in e.iter(f"{SVG}text"))}
     return {"page": {key: root.attrib.get(key) for key in ("width", "height", "viewBox")},
@@ -95,36 +96,39 @@ def extract_project(archive: Path, destination: Path) -> None:
 def sheet(destination: Path, cards: list[tuple[str, Path]], *, title: str,
           subtitle: str, columns: int = 3, tile_width: int = 360) -> None:
     """Compose un-cropped real outputs, preserving each page's proportions."""
-    gap, margin, header, footer = 28, 36, 125, 90
+    zoom = 3840 / (72 + columns*tile_width + (columns-1)*28)
+    def px(value):
+        return round(value*zoom)
+    gap, margin, header, footer, tile_width = map(px, (28, 36, 125, 90, tile_width))
     image_height = round(tile_width * 297 / 210)
-    card_height = image_height + 48
+    card_height = image_height + px(48)
     rows = (len(cards) + columns - 1) // columns
     width = 2 * margin + columns * tile_width + (columns - 1) * gap
     height = header + rows * card_height + (rows - 1) * gap + footer
-    canvas = Image.new("RGB", (width, height), "#ECEEE9")
+    canvas = Image.new("RGB", (width, height), "#FFFFFF")
     draw = ImageDraw.Draw(canvas)
-    headline = ImageFont.truetype(str(FONT_PATH), 31)
-    body = ImageFont.truetype(str(FONT_PATH), 15)
-    caption = ImageFont.truetype(str(FONT_PATH), 18)
-    draw.text((margin, 22), "UMAP ART / 0.2", font=body, fill="#52665B")
-    draw.text((margin, 47), title, font=headline, fill="#173D32")
-    draw.text((margin, 91), subtitle, font=body, fill="#52665B")
+    headline = ImageFont.truetype(str(FONT_PATH), px(32))
+    body = ImageFont.truetype(str(FONT_PATH), px(14))
+    caption = ImageFont.truetype(str(BOLD_FONT_PATH), px(15))
+    draw.text((margin, px(17)), f"U-MAP   /   {version}", font=body, fill="#505050")
+    draw.text((margin, px(37)), title, font=headline, fill="#1E1E1E")
+    draw.text((margin, px(81)), subtitle, font=body, fill="#505050")
     for index, (label, path) in enumerate(cards):
         x = margin + (index % columns) * (tile_width + gap)
         y = header + (index // columns) * (card_height + gap)
-        draw.text((x, y), label, font=caption, fill="#173D32")
-        draw.rectangle((x - 1, y + 32, x + tile_width + 1, y + 33 + image_height),
-                       fill="#FFFFFF", outline="#D0D7CE", width=1)
+        draw.text((x, y), label, font=caption, fill="#262626")
+        draw.rectangle((x - 1, y + px(32), x + tile_width + 1, y + px(33) + image_height),
+                       fill="#FFFFFF", outline="#DADADA", width=px(1))
         with Image.open(path) as image:
             preview = image.convert("RGB")
             preview.thumbnail((tile_width, image_height), Image.Resampling.LANCZOS)
         canvas.paste(preview, (x + (tile_width - preview.width) // 2,
-                              y + 33 + (image_height - preview.height) // 2))
-    draw.text((margin, height - 63),
-              "Kadıköy · 1:5000 · Saved data acquired 12 October 2026", font=body, fill="#52665B")
-    draw.text((margin, height - 37),
+                              y + px(33) + (image_height - preview.height) // 2))
+    draw.text((margin, height - px(63)),
+              "Kadıköy · 1:5000 · Saved data acquired 12 October 2026", font=body, fill="#505050")
+    draw.text((margin, height - px(37)),
               "Map data © OpenStreetMap contributors and Overture Maps · ODbL", font=body,
-              fill="#52665B")
+              fill="#505050")
     canvas.save(destination)
 
 
@@ -156,7 +160,7 @@ def build_showcase(output: Path, *, dpi: int = 300) -> dict:
 
         def run(name, spec):
             result = render(spec, output_dir=output / name)
-            if result.diagnostics:
+            if any(d.severity != "info" for d in result.diagnostics):
                 raise ValueError(f"Unreviewed showcase diagnostics in {name}: {result.diagnostics}")
             results[name] = result
             manifest = json.loads(Path(result.manifest_path).read_text("utf-8"))
@@ -177,6 +181,11 @@ def build_showcase(output: Path, *, dpi: int = 300) -> dict:
             run(f"themes/{theme}", spec)
         run("guide", preset("guide"))
         run("atlas", preset("atlas"))
+        run("pocket", preset("pocket"))
+        field = preset("field-cards")
+        with as_file(resource.joinpath(field.places[0].reference_photo)) as photo:
+            field.places[0].reference_photo = str(photo.resolve())
+            run("field-cards", field)
         edited = preset("poster")
         edited.title = "Benim Kadıköy’üm"
         edited.page.title_size_pt = 22
@@ -214,11 +223,14 @@ def build_showcase(output: Path, *, dpi: int = 300) -> dict:
     sheet(output / "atlas-sheet.png", atlas_cards, title="Read the neighborhood.",
           subtitle="Four aligned analytical pages from the same saved dataset.", columns=2)
     sheet(output / "release-showcase.png", [
-        ("01 / READ · Spatial atlas", output / "atlas-sheet.png"),
-        ("02 / SHARE · Field guide", png("guide")),
-        ("03 / KEEP · Personal poster", png("themes/vintage")),
-    ], title="One neighborhood. Three ways to work.",
-          subtitle="A4 · Editable vectors · Offline revisions · One portable project per output")
+        ("01   Personal poster", png("themes/vintage")),
+        ("02   Neighborhood guide", png("guide")),
+        ("03   Urban atlas  /  Roads", png("atlas", "roads")),
+        ("04   Pocket guide  /  Front", png("pocket", "pocket-front")),
+        ("05   Pocket guide  /  Reverse", png("pocket", "pocket-back")),
+        ("06   Repeat photography", png("field-cards", "field-card-01")),
+    ], title="Kadıköy field collection",
+          subtitle="Five layouts from one dataset   /   A4 and A5   /   Editable SVG and vector PDF")
     sheet(output / "revision-comparison.png", [
         ("BEFORE / Vintage", png("themes/vintage")), ("AFTER / Neon + title + point order", png("revision/after"))
     ], title="Change the design. Keep the geography.",

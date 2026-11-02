@@ -95,10 +95,30 @@ def test_polygon_hole_is_background_in_raster(tmp_path):
     x, y, w, h = scene.frame
     center = (round((x+w/2)/scene.width_pt*image.width),
               round((scene.height_pt-y-h/2)/scene.height_pt*image.height))
-    assert image.getpixel(center) == (250, 250, 247)
+    assert image.getpixel(center) == (255, 255, 255)
     # A point 100 m east of the centre lies in the wall, outside the courtyard.
     wall = (round(center[0] + 100/scene.scale_denominator*1000/25.4*100), center[1])
     assert image.getpixel(wall) == (69, 74, 79)
+
+
+def test_page_and_map_share_one_background_across_themes():
+    spec, prepared, _ = fixture_scene()
+    for style in list_styles():
+        spec.style.theme = style["name"]
+        for background in (None, "#F4F1EA"):
+            spec.style.background = background
+            scene = compile_scene(prepared, spec, "general")
+            fills = [g.paths[0].paint.fill for g in scene.groups if g.id in ("page", "map-background")]
+            assert fills == [background or "#FFFFFF"] * 2
+
+
+def test_turkish_labels_use_space_grotesk_and_old_symbols_remain_available():
+    from umap_art.scene import SceneText
+
+    assert SceneText("city", "İstanbul · Çığ", 0, 0, 10).font_path.name == "SpaceGrotesk-Regular.ttf"
+    assert SceneText("city", "Köşe", 0, 0, 10, bold=True).font_path.name == "SpaceGrotesk-Bold.ttf"
+    assert SceneText("price", "50 ₺", 0, 0, 10).font_path.name == "SpaceGrotesk-Regular.ttf"
+    assert SceneText("arrow", "⟶", 0, 0, 10).font_path.name == "DejaVuSans.ttf"
 
 
 def test_targeted_style_edit_retains_other_layers_geometry_and_ids():
@@ -206,7 +226,7 @@ def test_river_centerline_has_visible_stroke_and_respects_explicit_overrides():
         return next(p for g in scene.groups for p in g.paths if p.feature_id == river.id)
 
     default = river_path(spec)
-    assert default.paint.stroke == "#D4E3E8"
+    assert default.paint.stroke == "#6098AC"
     assert default.paint.fill is None
     assert default.paint.width_pt == pytest.approx(0.2*PT_PER_MM)
     spec.style.layers["water"] = {"fill": "#FF0000"}

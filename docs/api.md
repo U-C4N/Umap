@@ -1,7 +1,7 @@
 # Recipes and Python API
 
-The stable API is `MapSpec`, `RenderResult`, and `render(spec, output_dir=...)`.
-The renderer also accepts a recipe file path; relative snapshot paths are then
+The stable API is `MapSpec`, `RenderResult`, and `render(spec, output_dir=..., places_csv=...)`.
+The renderer also accepts a recipe file path. Relative snapshot and photo paths are then
 resolved against that file. When constructing a model from JSON text yourself,
 resolve its snapshot against the original recipe directory before calling render.
 Unknown fields and schema versions are rejected.
@@ -19,7 +19,8 @@ fields require Umap 0.2 or newer. Forward compatibility with 0.1 is not promised
 | `area.scale_denominator` | 5000; used for center/place. Bbox mode computes scale |
 | `page` | A3 landscape, 300 DPI, 10 mm margins, 20 mm header, 16 mm footer |
 | `page.text_mode` | `editable` or `outline` |
-| `page.layout` | `classic` (default), `poster` or `guide`; new layouts require `views=["general"]` |
+| `page.png_resolution` | `auto` (default) gives the standard 300-DPI setting at least 3840 pixels on the long edge, preserving larger pages. Other explicit DPI values use print dimensions. `4k` fixes the long edge at exactly 3840 pixels. `print` uses the requested DPI on every size. |
+| `page.layout` | `classic` (default), `poster`, `guide`, `pocket`, `field_cards`. All place layouts use `views=["general"]`. The last two require `size="A5"` and `orientation="portrait"`. |
 | `page.title_size_pt` | Optional 8–48 pt; legacy default in classic, 24 pt in poster/guide |
 | `page.subtitle_size_pt` | Optional 7–24 pt; default 9 pt |
 | `style.schema_version` | `"1"`; also supported for standalone style documents |
@@ -31,7 +32,7 @@ fields require Umap 0.2 or newer. Forward compatibility with 0.1 is not promised
 | `views` | `["general"]`; also `figure_ground`, `roads`, `green`, `water` |
 | `formats` | `["png", "svg", "pdf"]` |
 | `title`, `subtitle` | `Umap`, empty string |
-| `places` | Default `[]`; up to 12 objects with unique `id`, `label`, `coordinates: [longitude, latitude]`; poster/guide only |
+| `places` | Up to 12 objects with unique `id`, `label` and `coordinates: [longitude, latitude]` in a place layout. Optional `note`, `bearing` and `reference_photo`. |
 | `language` | `tr` or `en`; affects map labels, does not translate user text |
 | `geometry_policy` | `strict`; `repair` explicitly requests topology repair with diagnostics |
 | `source.snapshot` | Path to a hash-verified normalized dataset snapshot |
@@ -117,9 +118,25 @@ including when the list is empty. This band is additional to `header_mm` and
 `footer_mm`. Header height controls the title band; in `poster` that band sits
 below the map, in `guide` it sits above. Changing font size never resizes the bands;
 overflow fails with `TEXT_OVERFLOW`. Place labels use 8 pt, marker numbers 7 pt,
-and markers have a physical diameter of 5 mm. Overlap is reported without moving
-coordinates; markers and numbers touching the frame are clipped with a warning.
+and markers have a physical diameter of 5 mm. Colliding markers move apart with
+leader lines to their original coordinates. Isolated edge markers can be clipped.
 See the [poster gallery](posters.md).
+
+### Pocket guides and camera stations (v0.3.0)
+
+`places_csv` replaces the recipe list at render time. CSV uses UTF-8, a comma
+delimiter and a header. Required columns are `name,latitude,longitude`. Optional
+columns are `id,note,bearing,reference_photo`. Turkish headers are supported
+(`ad,enlem,boylam,not,yön,fotoğraf`). Generated IDs use the name and coordinates.
+Use explicit IDs for identical entries. Photo paths in CSV are relative to the CSV.
+
+`pocket` creates the two sides of an A5 guide. `field_cards` requires at least
+one station and, for each, a bearing in [0, 360) clockwise from true north and a
+local JPEG or PNG reference photo (up to 20 MiB and 40 megapixels). Use a short
+note and place name. Text that cannot fit the page reports `TEXT_OVERFLOW`.
+When PDF is requested, pages are combined in `pocket-guide.pdf` or `field-cards.pdf`.
+PNG and SVG create one file per side or station. The saved recipe and ZIP retain
+the selected places and local copies of photographs.
 
 ## Outputs and errors
 
@@ -143,7 +160,8 @@ physical units. SVG/PDF byte equality across operating systems is not promised.
 | `INVALID_FILTER` | Correct the declarative style rule |
 | `PLACE_OUTSIDE_MAP` | Move/remove the selected place, or explicitly acquire a map covering it |
 | `TEXT_OVERFLOW` / `MISSING_GLYPH` | Shorten the text, adjust supported text sizes/bands, or use supported characters |
-| `PLACE_OVERLAP` / `PLACE_CLIPPED` | Nonfatal diagnostics: inspect overlapping or edge-clipped markers |
+| `PLACE_OVERLAP` / `PLACE_CLIPPED` | A number was separated automatically or an isolated marker touches the frame |
+| `INVALID_PLACES_CSV` / `INVALID_REFERENCE_PHOTO` | Correct the indicated CSV row or supply a readable local JPEG/PNG |
 | `source_unavailable` / `source_timeout` | Retry later, or render an existing saved snapshot |
 | `source_incomplete` / `source_schema` | Inspect provider diagnostics; no partial final map is published |
 

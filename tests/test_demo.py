@@ -85,7 +85,7 @@ def test_presets_render_offline_and_relocate(
         for extension in ("png", "svg", "pdf"):
             assert (recipe.parent / f"{view}.{extension}").is_file()
         with Image.open(recipe.parent / f"{view}.png") as png:
-            assert png.size == (round(210 / 25.4 * 300), round(297 / 25.4 * 300))
+            assert png.size == (round(210 / 297 * 3840), 3840)
     assert (recipe.parent / "project.zip").is_file()
 
     portable = tmp_path / "Taşınmış proje"

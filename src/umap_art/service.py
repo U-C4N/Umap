@@ -27,6 +27,7 @@ from .models import (
     RenderResult,
     validate_spec,
 )
+from .places import read_places_csv, store_photo
 from .storage import atomic_json, cache_root, digest, file_hash
 
 _RENDER_LOCK = threading.RLock()
@@ -217,11 +218,17 @@ def _resolve(spec: MapSpec, cache: Path) -> MapSpec:
 
 
 def _render_impl(
-    spec: MapSpec | dict | str | Path, *, output_dir="outputs", refresh=False
+    spec: MapSpec | dict | str | Path, *, output_dir="outputs", refresh=False, places_csv=None
 ) -> RenderResult:
     """Render a recipe to a new atomic output directory; refreshing is an explicit service action."""
     started = time.perf_counter()
     recipe_base = Path(spec).resolve().parent if isinstance(spec, (str, Path)) else Path.cwd()
+    if places_csv is not None:
+        if isinstance(spec, (str, Path)):
+            spec = json.loads(Path(spec).read_text(encoding="utf-8"))
+        elif isinstance(spec, MapSpec):
+            spec = spec.model_dump()
+        spec = {**spec, "places": read_places_csv(places_csv)}
     spec = validate_spec(spec)
     from .styles import validate_style
 
@@ -253,7 +260,7 @@ def _render_impl(
             "Cannot export a dataset with unresolved errors",
             {"diagnostics": [d.model_dump() for d in prepared.diagnostics]},
         )
-    from .renderer import render_scene
+    from .renderer import render_print_pages, render_scene
     from .scene import FONT_PATH, compile_scene
 
     output = Path(output_dir).resolve()
@@ -275,10 +282,24 @@ def _render_impl(
             for name in ("renderer.py", "scene.py", "styles.py", "layout.py")
         }
     )
-    font_hash = file_hash(FONT_PATH)
+    font_hash = digest({path.name: file_hash(path) for path in FONT_PATH.parent.glob("*.ttf")})
     try:
+        for place in spec.places:
+            if place.reference_photo:
+                photo = store_photo(recipe_base / place.reference_photo, staging / "photos")
+                place.reference_photo = photo.relative_to(staging).as_posix()
         for view in spec.views:
             scene = compile_scene(prepared, spec, view)
+            if spec.page.layout in ("pocket", "field_cards"):
+                from .fieldwork import print_pages
+
+                pages = print_pages(scene, prepared, spec)
+                for page in pages:
+                    hashes[page.view] = page.semantic_hash()
+                    diagnostics.extend(page.diagnostics)
+                name = "pocket-guide" if spec.page.layout == "pocket" else "field-cards"
+                artifacts.extend(render_print_pages(pages, spec, staging, name))
+                continue
             semantic_hash = scene.semantic_hash()
             hashes[view] = semantic_hash
             diagnostics.extend(scene.diagnostics)
@@ -287,6 +308,7 @@ def _render_impl(
                     "scene": semantic_hash,
                     "formats": spec.formats,
                     "dpi": spec.page.dpi,
+                    "png_dpi": spec.page.png_dpi,
                     "text_mode": spec.page.text_mode,
                     "versions": versions,
                     "font": font_hash,
@@ -405,7 +427,7 @@ def _render_impl(
 
 
 def render(
-    spec: MapSpec | dict | str | Path, *, output_dir="outputs", refresh=False
+    spec: MapSpec | dict | str | Path, *, output_dir="outputs", refresh=False, places_csv=None
 ) -> RenderResult:
     """Render atomically, serializing Matplotlib's process-global state.
 
@@ -413,4 +435,4 @@ def render(
     processes; simultaneous calls within one process are deliberately serialized.
     """
     with _RENDER_LOCK:
-        return _render_impl(spec, output_dir=output_dir, refresh=refresh)
+        return _render_impl(spec, output_dir=output_dir, refresh=refresh, places_csv=places_csv)

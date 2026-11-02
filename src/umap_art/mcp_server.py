@@ -74,8 +74,9 @@ def create_server(root: Path | str, *, provider_urls: dict[str, str] | None = No
             "theme", "background", "ink", "accent", "layers", "order", "rules"]})
 
     @server.tool(annotations=mutation)
-    def create_map(spec: dict, candidate_id: str | None = None, request_id: str | None = None):
-        """Create a persistent map and acquisition job. Pass coordinates/bbox or a searched candidate."""
+    def create_map(spec: dict, candidate_id: str | None = None, request_id: str | None = None,
+                   places_csv: str | None = None):
+        """Create a map. Optional places_csv replaces places using a file inside the workspace."""
         def create():
             value = json.loads(json.dumps(spec))
             if candidate_id:
@@ -87,7 +88,7 @@ def create_server(root: Path | str, *, provider_urls: dict[str, str] | None = No
                 area["center"] = candidate["center"]
             elif value.get("area", {}).get("place"):
                 raise UmapError("LOCATION_SELECTION_REQUIRED", "Call find_map_location and choose candidate_id")
-            return workspace.create_map(value, request_id=request_id)
+            return workspace.create_map(value, request_id=request_id, places_csv=places_csv)
         return call(create)
 
     @server.tool(annotations=readonly)

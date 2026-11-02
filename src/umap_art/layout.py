@@ -26,8 +26,11 @@ def resolve_layout(page: PageSpec) -> PageLayout:
     w, h = page.dimensions_mm
     m, header, footer = page.margin_mm, page.header_mm, page.footer_mm
     width = w - 2*m
-    if page.layout == "classic":
+    if page.layout in ("classic", "pocket", "field_cards"):
         frame = (m, m+footer, width, h-2*m-header-footer)
+        if page.layout == "field_cards":
+            bottom = h * 0.50
+            frame = (m, bottom, width, h-m-header-9-bottom)
         title = (m, h-m-header, width, header)
         places = None
     else:

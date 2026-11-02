@@ -9,6 +9,9 @@ from importlib.resources import files
 
 def test_bundled_font_has_redistribution_notice():
     assets = files("umap_art").joinpath("assets/fonts")
+    for name in ("SpaceGrotesk-Regular.ttf", "SpaceGrotesk-Bold.ttf"):
+        assert len(assets.joinpath(name).read_bytes()) > 100_000
+    assert "SIL OPEN FONT LICENSE" in assets.joinpath("LICENSE_SPACE_GROTESK").read_text("utf-8")
     assert len(assets.joinpath("DejaVuSans.ttf").read_bytes()) > 100_000
     notice = assets.joinpath("LICENSE_DEJAVU").read_text(encoding="utf-8")
     assert "Bitstream" in notice and "Permission" in notice

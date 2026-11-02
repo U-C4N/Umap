@@ -1,6 +1,6 @@
 # Umap Art
 
-**One neighborhood. An architectural atlas, a field guide and a poster you can keep editing.**
+**Editable city maps for posters, neighborhood guides, architectural studies and repeat photography.**
 
 Create maps for spatial studies, presentations and personal neighborhood guides
 from open data. Start with a bundled real-world example, then choose a theme,
@@ -8,19 +8,57 @@ add your own places, and export **PNG, editable SVG and vector PDF** at a
 real-world scale — through Python, the CLI or a local MCP server.
 
 [![Python 3.12–3.14](https://img.shields.io/badge/Python-3.12%E2%80%933.14-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Source version 0.2.0](https://img.shields.io/badge/source-v0.2.0-2563EB)](docs/release-notes.md)
+[![Source version 0.3.0](https://img.shields.io/badge/source-v0.3.0-2563EB)](docs/release-notes.md)
 [![License: MIT](https://img.shields.io/badge/code-MIT-16A34A)](LICENSE)
 
 [Quick start](#quick-start) · [Python](#create-a-poster-in-python) ·
 [MCP](#connect-your-mcp-client) · [Documentation](#documentation) ·
 [Türkçe başlangıç](docs/hizli-baslangic.md)
 
-![The same saved Kadıköy data presented as four architectural pages, a numbered field guide and a personal poster](docs/release-showcase.png)
+## What changed from v0.2.0 to v0.3.0?
 
-*One saved Kadıköy dataset, acquired on 12 October 2026. All example pages are A4
-at 1:5000; the atlas has a taller map frame than the poster and guide. Example
-points are illustrative selections, not verified venues. Map data
-© OpenStreetMap contributors and Overture Maps, ODbL.*
+| Task | v0.2.0 | v0.3.0 |
+|---|---|---|
+| Add selected places | Enter each place in the map recipe | Import up to 12 places from a CSV in row order. Invalid coordinates identify the row to fix. |
+| Read nearby markers | Overlapping numbers share space and produce a warning | Numbers move apart automatically. A dot and a leader line identify each original coordinate. |
+| Carry a neighborhood guide | A3 or A4, with the map and directory on one side | **A5 pocket guide** with the map on the front and numbered places and notes on the reverse, in one two-page PDF. |
+| Return to a camera position | A numbered point identifies the location | **Aynı Kadraj** gives each station its own A5 card with a position, direction arrow, true bearing, reference photo and field note. |
+| Read the exported artwork | DPI-based PNGs and single-weight page typography | All five layouts share clearer titles and page identifiers. Default PNG exports have at least 3,840 pixels on the long side. SVG and PDF preserve physical scale. |
+
+[![Five v0.3.0 layouts rendered from Kadıköy data](docs/release-showcase.png)](docs/release-showcase.png)
+
+*The poster, neighborhood guide and atlas are A4. The pocket guide and camera
+card are A5. All five use the same October 2026 map data at 1:5000. The building
+in the example camera card is an AI-generated illustration.*
+
+Install the v0.3.0 package with `python -m pip install "umap-art==0.3.0"`, then try:
+
+```sh
+umap-art demo --preset pocket
+umap-art demo --preset field-cards
+```
+
+Open **`pocket-guide.pdf`**. Print at actual size on A5 (148 × 210 mm), double-sided,
+flipping on the long edge. PNG and editable SVG exports are named by side.
+
+**Make your own field cards.** Put your reference JPEG or PNG next to a UTF-8
+file named `stations.csv`. These example coordinates fit the bundled Kadıköy map.
+Replace the filename and bearing with those from your own shot.
+
+```csv
+name,latitude,longitude,bearing,reference_photo,note
+Sokak köşesi,40.9850,29.0250,75,corner.jpg,Kapı eşiğini kadrajın solunda tut.
+```
+
+```sh
+umap-art demo --preset field-cards --places-csv stations.csv
+```
+
+Open **`field-cards.pdf`**. Each page uses one CSV row. Bearings are degrees
+clockwise from true north. The project ZIP includes the reference images for
+offline reprints. For a pocket guide, only `name,latitude,longitude` are required.
+`--places-csv` also works with `render` and `refresh` on your own map recipe.
+See the [Turkish walkthrough](docs/hizli-baslangic.md#v030-ile-cep-rehberi-ve-aynı-kadraj).
 
 ## What you can make
 
@@ -28,6 +66,8 @@ points are illustrative selections, not verified venues. Map data
 |---|---|---|
 | A personal city poster | `umap-art demo` | A4 portrait, vintage colours, a centred title and numbered places |
 | A neighborhood guide | `umap-art demo --preset guide` | A4 portrait, blueprint colours and an ordered place directory |
+| A pocket guide | `umap-art demo --preset pocket` | A5 map front and a notes directory on the back |
+| Camera station cards | `umap-art demo --preset field-cards` | A5 cards with mapped direction, coordinates and a reference image |
 | An architectural study | `umap-art demo --preset atlas` | Four aligned A4 pages for buildings, roads, green spaces and water |
 | A general city map | [Kadıköy map](examples/kadikoy.json) | A3 landscape with a legend, scale bar and all four map layers |
 
@@ -49,12 +89,10 @@ model API; an MCP client supplies its own assistant.
 
 ## Quick start
 
-Use Python **3.12–3.14**. These commands require the published **v0.2.0** package
-on PyPI. See the [v0.2.0 release](https://github.com/U-C4N/Umap/releases/tag/v0.2.0)
-and [release status](docs/validation.md) for publication and verification status.
+Use Python **3.12–3.14** to install the v0.3.0 release.
 
 ```sh
-python -m pip install "umap-art==0.2.0"
+python -m pip install "umap-art==0.3.0"
 umap-art doctor
 umap-art demo
 ```
@@ -80,11 +118,11 @@ umap-art demo --theme neon --output outputs
 umap-art styles
 ```
 
-Use `--preset poster`, `guide` or `atlas`; `--theme` overrides that preset's theme.
+Use `--preset poster`, `guide`, `atlas`, `pocket` or `field-cards`. Supply
+`--places-csv` to use your own stations. Use `--theme` to override a preset's theme.
 Each run keeps earlier outputs and delivers its own recipe, snapshot and ZIP.
 The atlas produces four separate pages.
-All three presets share a dataset and physical scale; their visible frames need
-not match. The demo is an example of the saved data, not a current geographic survey.
+The presets share a dataset and physical scale. Their visible frames vary by layout.
 
 For your own area, use the Python example below or adapt a [repository recipe](examples)
 and run `umap-art render <recipe.json> --output outputs`. Those additional recipes
@@ -93,14 +131,17 @@ acquisition depends on public services; delivered snapshots support later offlin
 
 ## Choose your look
 
+All five layouts use Space Grotesk and a single white background across the
+page and map. An explicit `style.background` sets both to the same colour.
+
 | Theme | Palette and treatment |
 |---|---|
 | `architectural` | Restrained greys and soft land/water colours |
-| `city_poster` | Terracotta buildings, cream streets and blue water |
+| `city_poster` | Terracotta buildings, warm grey streets and blue water |
 | `minimal` | Black, white and greys |
-| `blueprint` | Navy background with pale vector outlines |
-| `vintage` | Sepia, muted greens and warm paper colours |
-| `neon` | Dark background, cyan roads and pink accents |
+| `blueprint` | Blue outlines and navy roads on white |
+| `vintage` | Sepia buildings and muted greens on white |
+| `neon` | Teal roads, violet buildings and pink markers on white |
 
 Use `page.layout="poster"` for a centred title below the map, or `"guide"` for a
 title above it. Both provide a two-column directory for up to twelve places and
@@ -154,8 +195,8 @@ accept `area.place`; ambiguous results return candidates for you to choose from.
 | Place names, positions or order | `places` |
 
 See the [recipe/API reference](docs/api.md) for field limits, filters and errors.
-Version 0.2 reads existing v1 recipes with their classic defaults. Recipes using
-the new poster fields require Umap 0.2 or newer, while `schema_version` remains `"1"`.
+Version 0.3 reads earlier v1 recipes. Pocket guides, field cards and
+`page.png_resolution` require Umap 0.3 or newer.
 
 ## Edit without downloading again
 
@@ -202,7 +243,7 @@ project.zip          Portable copy of the project
 
 Keep the whole output directory or `project.zip` to reproduce a design. Analytical
 exports use their view names, such as `figure_ground.svg`, instead of `general`.
-For SVG text editing, install the delivered DejaVu Sans font in your editor;
+For SVG text editing, install the delivered Space Grotesk faces and DejaVu Sans fallback;
 `page.text_mode="outline"` converts text to paths when font independence matters.
 
 ## Connect your MCP client
@@ -210,7 +251,7 @@ For SVG text editing, install the delivered DejaVu Sans font in your editor;
 Install the optional MCP adapter, then start a local workspace:
 
 ```sh
-python -m pip install "umap-art[mcp]==0.2.0"
+python -m pip install "umap-art[mcp]==0.3.0"
 umap-art mcp --workspace ./map-workspace
 ```
 
@@ -252,12 +293,12 @@ See the [MCP contract](docs/mcp.md) for tool arguments, previews and artifact ac
 | Buildings, roads, green and inland water | [OpenStreetMap / Overpass](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) | Bounded queries assembled with Pyosmium |
 | Ocean polygons | [Overture](https://docs.overturemaps.org/schema/reference/base/water/) | Anonymous STAC/GeoParquet reads for the selected area |
 
-- A3/A4 pages, portrait or landscape, fixed centre/scale or bbox fitting, up to
+- A3/A4/A5 pages, portrait or landscape, fixed centre/scale or bbox fitting, up to
   **25 km²**. Choosing a place name does not select its entire administrative area.
 - PNG at 72–600 DPI, editable SVG and RGB vector PDF. CMYK/PDF-X, routing, GPX,
   3D, a web editor and remote MCP are outside this release.
-- Out-of-frame points and overflowing text produce explicit errors. Overlapping
-  or edge-clipped markers produce diagnostics without moving their coordinates.
+- Out-of-frame points and overflowing text produce explicit errors. Crowded
+  numbers get leader lines. Isolated markers clipped at the frame edge produce a warning.
 - Source dates can differ, and successful downloads do not establish geographic
   completeness. OSM building data is not a cadastral survey.
 
@@ -303,12 +344,11 @@ this does not replace manual SVG editing acceptance. To test public providers:
 uv run pytest --live -m live
 ```
 
-**Recorded v0.2 validation, 13 October 2026:** 133 tests passed on Windows x64 /
-Python 3.14.6, Ruff passed, and a fresh wheel installation passed offline output
-and real MCP stdio checks. Four classic reference images remained pixel-identical.
-The repository configures a nine-environment CI matrix; remote results for these
-changes, Inkscape GUI acceptance, the user pilot and reference-machine performance
-remain separate release gates. See [validation and measured performance](docs/validation.md).
+For v0.3.0, 331 offline tests passed locally on Windows with Python 3.14.
+The candidate was also installed from its wheel and used to produce a 4K field card.
+The release evidence records the nine-environment CI run, distribution hashes and
+the disposition of the Inkscape edit/reopen check, three-user pilot and physical
+reference-machine performance checks. [v0.3.0 release evidence](https://github.com/U-C4N/Umap/releases/download/v0.3.0/release-evidence.json).
 
 For bug reports, include the output of `umap-art --version`, the error code and a
 minimal recipe. [Open an issue](https://github.com/U-C4N/Umap/issues).
@@ -328,8 +368,9 @@ minimal recipe. [Open an issue](https://github.com/U-C4N/Umap/issues).
 ## License and attribution
 
 Umap's application code is [MIT licensed](LICENSE). Geographic data retains its
-source licenses: OpenStreetMap and Overture Base water use ODbL. DejaVu Sans has
-its [own bundled license](src/umap_art/assets/fonts/LICENSE_DEJAVU).
+source licenses: OpenStreetMap and Overture Base water use ODbL. Bundled fonts
+include [Space Grotesk](src/umap_art/assets/fonts/LICENSE_SPACE_GROTESK) and
+the [DejaVu Sans fallback](src/umap_art/assets/fonts/LICENSE_DEJAVU).
 Preserve the source attribution when sharing artwork; source and font notices
 travel with each default export.
 

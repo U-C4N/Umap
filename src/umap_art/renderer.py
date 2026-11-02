@@ -12,15 +12,17 @@ from pathlib import Path
 from matplotlib import rc_context
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.collections import PathCollection
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.patches import PathPatch, Rectangle
 from matplotlib.path import Path as MplPath
 from matplotlib.text import Text
+from PIL import Image, ImageOps
 
 from .models import Artifact, MapSpec
-from .scene import FONT_PATH, Scene
+from .scene import Scene
 
 _RENDER_LOCK = threading.RLock()
 _MIME_TYPES = {"png": "image/png", "svg": "image/svg+xml", "pdf": "application/pdf"}
@@ -47,7 +49,7 @@ class GroupArtist(Artist):
         return list(self.children)
 
 
-def _figure(scene: Scene, *, raster=False):
+def _figure(scene: Scene, *, raster=False, asset_dir=None, dpi=300):
     fig = Figure(figsize=(scene.width_pt/72, scene.height_pt/72), layout=None)
     FigureCanvasAgg(fig)
     ax = fig.add_axes([0, 0, 1, 1])
@@ -102,9 +104,23 @@ def _figure(scene: Scene, *, raster=False):
         group_artist = GroupArtist(group.id, children)
         group_artist.set_zorder(group_index)
         ax.add_artist(group_artist)
+    if scene.image:
+        x, y, w, h = scene.image.box
+        with Image.open(asset_dir / scene.image.path) as source:
+            photo = ImageOps.exif_transpose(source)
+            photo.thumbnail((max(1, round(w*dpi/72)), max(1, round(h*dpi/72))),
+                            resample=Image.Resampling.LANCZOS)
+            scale = min(w/photo.width, h/photo.height)
+            iw, ih = photo.width*scale, photo.height*scale
+            left, bottom = x+(w-iw)/2, y+(h-ih)/2
+            ax.imshow(photo.convert("RGBA"), extent=(left, left+iw, bottom, bottom+ih),
+                      aspect="auto", interpolation="antialiased", zorder=len(scene.groups))
     for item in scene.texts:
+        font_path = item.font_path
+        family = "Space Grotesk" if font_path.name.startswith("SpaceGrotesk") else "DejaVu Sans"
         artist = Text(item.x, item.y, item.text, color=item.color,
-                      fontproperties=FontProperties(fname=str(FONT_PATH), size=item.size_pt),
+                      fontproperties=FontProperties(fname=str(font_path), family=family, size=item.size_pt,
+                                                    weight="bold" if item.bold else "normal"),
                       horizontalalignment=item.align, verticalalignment="baseline",
                       transform=ax.transData, parse_math=False)
         artist.set_gid(item.id)
@@ -136,8 +152,9 @@ def render_scene(scene: Scene, spec: MapSpec, output_dir: Path) -> list[Artifact
         try:
             for fmt in spec.formats:
                 raster = fmt == "png"
+                dpi = spec.page.png_dpi if raster else spec.page.dpi
                 if raster not in figures:
-                    figures[raster] = _figure(scene, raster=raster)
+                    figures[raster] = _figure(scene, raster=raster, asset_dir=output_dir, dpi=dpi)
                 fig = figures[raster]
                 destination = output_dir / f"{scene.view}.{fmt}"
                 descriptor, name = tempfile.mkstemp(prefix=f".{scene.view}-", suffix=".tmp",
@@ -154,11 +171,12 @@ def render_scene(scene: Scene, spec: MapSpec, output_dir: Path) -> list[Artifact
                     # Nearest integer pixel dimensions are the raster equivalent of
                     # the exact physical page; scene layout itself remains unchanged.
                     if fmt == "png":
-                        fig.set_size_inches(round(scene.width_pt/72*spec.page.dpi)/spec.page.dpi,
-                                            round(scene.height_pt/72*spec.page.dpi)/spec.page.dpi)
+                        # Agg truncates floating-point pixel extents. Keep exact rounded pixels.
+                        fig.set_size_inches((round(scene.width_pt/72*dpi)+1e-8)/dpi,
+                                            (round(scene.height_pt/72*dpi)+1e-8)/dpi)
                     else:
                         fig.set_size_inches(scene.width_pt/72, scene.height_pt/72)
-                    fig.savefig(temporary, format=fmt, dpi=spec.page.dpi,
+                    fig.savefig(temporary, format=fmt, dpi=dpi,
                                 facecolor="white", transparent=False, metadata=metadata)
                     digest = hashlib.sha256(temporary.read_bytes()).hexdigest()
                     size = temporary.stat().st_size
@@ -170,4 +188,30 @@ def render_scene(scene: Scene, spec: MapSpec, output_dir: Path) -> list[Artifact
         finally:
             for fig in figures.values():
                 fig.clear()
+    return artifacts
+
+
+def render_print_pages(pages, spec, output_dir, name):
+    """Deliver individual image sides and one ordered vector PDF inside service staging."""
+    artifacts = []
+    images = [fmt for fmt in spec.formats if fmt != "pdf"]
+    if images:
+        image_spec = spec.model_copy(update={"formats": images})
+        for page in pages:
+            artifacts.extend(render_scene(page, image_spec, output_dir))
+    if "pdf" in spec.formats:
+        target = output_dir / f"{name}.pdf"
+        date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        with _RENDER_LOCK, rc_context({"pdf.fonttype": 42, "path.simplify": False,
+                                      "text.usetex": False, "lines.scale_dashes": False}), PdfPages(
+                target, metadata={"Title": spec.title, "Creator": "umap-art",
+                                  "CreationDate": date, "ModDate": date}) as pdf:
+            for page in pages:
+                fig = _figure(page, asset_dir=output_dir, dpi=spec.page.dpi)
+                try:
+                    pdf.savefig(fig, dpi=spec.page.dpi, facecolor="white")
+                finally:
+                    fig.clear()
+        artifacts.append(Artifact(path=str(target), mime_type="application/pdf", view=name,
+                         sha256=hashlib.sha256(target.read_bytes()).hexdigest(), size_bytes=target.stat().st_size))
     return artifacts

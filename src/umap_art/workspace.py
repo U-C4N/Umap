@@ -148,7 +148,12 @@ class Workspace:
         if source.get("snapshot"):
             source["snapshot"] = str(self._safe(source["snapshot"]))
         spec = MapSpec.model_validate(raw)
+        from .places import store_photo
         from .styles import validate_style
+        for place in spec.places:
+            if place.reference_photo:
+                place.reference_photo = str(store_photo(self._safe(place.reference_photo),
+                                                        self._safe(self.root / "photos")))
         validate_style(spec.style)
         return spec
 
@@ -202,12 +207,19 @@ class Workspace:
         self._wake.set()
         return job_id
 
-    def create_map(self, spec: dict, request_id: str | None = None) -> dict:
+    def create_map(self, spec: dict, request_id: str | None = None, places_csv: str | None = None) -> dict:
         payload = {"method": "create_map", "spec": spec}
+        if places_csv is not None:
+            payload["places_csv"] = places_csv
         with self._guard, self._db:
             prior = self._existing_request(request_id, payload)
             if prior:
                 return prior
+            if places_csv is not None:
+                from .places import read_places_csv
+
+                spec = {**spec, "places": [p.model_dump(mode="json") for p in
+                                          read_places_csv(self._safe(places_csv))]}
             checked = self._spec(spec).model_dump(mode="json")
             map_id = _id("map")
             self._db.execute("INSERT INTO maps VALUES(?,1)", (map_id,))
@@ -287,7 +299,8 @@ class Workspace:
 
     @staticmethod
     def _preview(spec: dict) -> dict:
-        return _merge(spec, {"formats": ["png"], "page": {"dpi": 72}, "bundle": False})
+        return _merge(spec, {"formats": ["png"], "page": {"dpi": 72, "png_resolution": "print"},
+                             "bundle": False})
 
     def refresh_map_data(self, map_id: str, base_revision: int,
                          request_id: str | None = None, changes: dict | None = None) -> dict:

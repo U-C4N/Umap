@@ -31,9 +31,9 @@ The example points illustrate user selections; they are not verified venue listi
 | `architectural` | Restrained grey | Spatial studies |
 | `city_poster` | Terracotta and blue | Warm city prints |
 | `minimal` | Black, white and greys | Monochrome posters |
-| `blueprint` | Navy, pale outlines | Linework and numbered guides |
-| `vintage` | Sepia, muted greens | Warm paper colours |
-| `neon` | Dark background, cyan and pink | High-contrast digital artwork |
+| `blueprint` | Blue outlines, navy roads | Linework and numbered guides |
+| `vintage` | Sepia, muted greens | Warm-toned features on white |
+| `neon` | Teal, violet and pink | High-contrast digital artwork |
 
 Neon uses ordinary vector fills and strokes, so SVG and PDF stay editable. It
 does not use raster glow effects. Colours are RGB, not a CMYK/PDF-X print profile.
@@ -68,11 +68,11 @@ recipe works in Python and MCP; see the [API](api.md) and [MCP workflow](mcp.md)
 
 Long titles or names return `TEXT_OVERFLOW`; unsupported characters return
 `MISSING_GLYPH`. Shorten the text or adjust title/subtitle size. Text is never
-silently truncated. Labels use the bundled DejaVu Sans font.
+silently truncated. Labels use Space Grotesk. DejaVu Sans covers additional glyphs.
 
 `PLACE_OUTSIDE_MAP` means the selected coordinate is outside the projected frame.
-Remove/change the point or explicitly acquire a wider map. Overlapping or clipped
-markers are warnings, not automatic coordinate changes. A wider page can require
+Remove/change the point or explicitly acquire a wider map. Overlapping markers
+get separate numbers and leader lines. Isolated edge markers produce a warning. A wider page can require
 `refresh` (CLI) or `refresh_map_data(changes=...)` (MCP).
 
 Keep the source attribution when sharing. For independent text editing in an SVG

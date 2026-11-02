@@ -6,18 +6,15 @@ alabilirsin. Hesap veya API anahtarı gerekmez.
 
 ## Kurulum ve ilk poster
 
-Python **3.12–3.14** kullan. Bu komutlar PyPI'da yayımlanmış **v0.2.0** paketini
-gerektirir. Yayın ve doğrulama durumunu [v0.2.0 sürüm sayfasından](https://github.com/U-C4N/Umap/releases/tag/v0.2.0)
-ve [doğrulama kaydından](validation.md) kontrol edebilirsin.
+Python **3.12–3.14** ile v0.3.0 paketini kur.
 
 ```sh
-python -m pip install "umap-art==0.2.0"
+python -m pip install "umap-art==0.3.0"
 umap-art doctor
 umap-art demo
 ```
 
 Komut bulunamazsa aynı Python ortamıyla `python -m umap_art` kullanabilirsin.
-Depoyu klonlaman veya JSON düzenlemen gerekmez.
 
 Kurulum Python bağımlılıklarını indirebilir; `demo` paketle gelen Kadıköy verisini
 kullanır ve harita servislerine bağlanmaz. Varsayılan çıktı vintage temasında,
@@ -26,8 +23,40 @@ Komut PNG önizlemelerinin, SVG/PDF'lerin, tarifin ve proje klasörünün yolunu
 Sonuçlar `outputs` altında her işlem için ayrı klasöre yazılır.
 
 Önce bir PNG aç. Ardından SVG'yi vektör düzenleyicine al: tekil bina ve yol çizgileri,
-katman grupları ve metinler düzenlenebilir. Yazı için teslim edilen DejaVu Sans
+katman grupları ve metinler düzenlenebilir. Yazı için teslim edilen Space Grotesk
 fontunu kur; teslim paketi bu fontun lisansını da taşır.
+
+## v0.3.0 ile cep rehberi ve Aynı Kadraj
+
+Beş düzeni de varsayılan ayarlarla 4K PNG olarak alabilirsin. A5 kart
+2706 × 3840 piksel, A4 poster 2715 × 3840 pikseldir. PDF ve SVG gerçek baskı
+ölçüsünü korur. Hazır saha kartını `umap-art demo --preset field-cards` ile
+deneyebilirsin. Karttaki mimari örnek, ImageGen ile üretilmiş temsili bir görseldir.
+
+`umap-art demo --preset pocket` komutu, ön yüzünde harita ve arka yüzünde
+numaralı duraklarla kısa notların bulunduğu `pocket-guide.pdf` dosyasını üretir.
+Yazdırırken A5, gerçek boyut ve uzun kenardan çift taraflı çevirme seçeneklerini kullan.
+
+Kendi durakların için UTF-8 kodlamalı, virgülle ayrılmış bir CSV hazırla.
+İlk üç sütun zorunlu. Saha kartı için her satıra gerçek kuzeyden saat yönünde
+çekim açısını (0 dahil, 360 hariç) ve kendi referans fotoğrafını ekle.
+Fotoğraf yolları CSV'nin bulunduğu klasöre göredir.
+
+```csv
+ad,enlem,boylam,yön,fotoğraf,not
+Sokak köşesi,40.9850,29.0250,75,kose.jpg,Kapı eşiğini kadrajın solunda tut.
+```
+
+```sh
+umap-art demo --preset pocket --places-csv duraklar.csv
+umap-art demo --preset field-cards --places-csv duraklar.csv
+```
+
+İlk komut listedeki 12 durağa kadar bir rehber oluşturur. İkinci komut her durak
+için bir A5 sayfa üretip hepsini `field-cards.pdf` içinde toplar. Her kartta
+konum, yön oku, çekim açısı, referans fotoğrafı ve varsa saha notu bulunur.
+Fotoğraflar proje ZIP'ine de eklenir. Kendi bölgen için aynı CSV'yi
+`umap-art render tarif.json --places-csv duraklar.csv` ile kullanabilirsin.
 
 ## Bir semt, üç anlatı
 
@@ -122,7 +151,7 @@ MCP'de kapsamı büyüten sayfa değişikliği için `refresh_map_data` aracına
 ## MCP
 
 ```sh
-python -m pip install "umap-art[mcp]==0.2.0"
+python -m pip install "umap-art[mcp]==0.3.0"
 umap-art mcp --workspace ./map-workspace
 ```
 
@@ -134,7 +163,7 @@ ihtiyacı yoktur.
 ## Çıktıyı düzenleme
 
 SVG öğeleri katman grupları ve nesne kimlikleri taşır. Metin düzenlemek için
-teslim paketindeki DejaVu Sans fontunu düzenleyici ortamına kur. Fonta bağlı
+teslim paketindeki Space Grotesk yazı tiplerini düzenleyici ortamına kur. Ek karakterler için pakette DejaVu Sans da bulunur. Fonta bağlı
 kalmamak için `page.text_mode` değerini `outline` yap; bu modda harfler yola dönüşür.
 
 Harita verisindeki eksiklikleri gerçek dünyada yapı veya yol yokluğu olarak

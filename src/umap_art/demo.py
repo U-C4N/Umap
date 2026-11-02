@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
+from contextlib import ExitStack
 from importlib.resources import as_file, files
 from pathlib import Path
 
 from .errors import UmapError
 from .models import MapSpec, RenderResult, StyleSpec
 
-PRESETS = ("poster", "guide", "atlas")
+PRESETS = ("poster", "guide", "atlas", "pocket", "field-cards")
 
 
 def render_demo(
-    preset: str = "poster", *, theme: str | None = None, output_dir: str | Path = "outputs"
+    preset: str = "poster", *, theme: str | None = None, output_dir: str | Path = "outputs",
+    places_csv: str | Path | None = None
 ) -> RenderResult:
     """Render a bundled recipe without fetching data or changing package resources."""
     if preset not in PRESETS:
         raise ValueError(f"Unknown demo preset: {preset}")
     resources = files("umap_art").joinpath("examples", "kadikoy")
-    required = (f"{preset}.json", "snapshot.json", "DATA-LICENSES.txt")
+    recipe_name = f"{preset}.json"
+    required = (recipe_name, "snapshot.json", "DATA-LICENSES.txt")
     missing = [name for name in required if not resources.joinpath(name).is_file()]
     if missing:
         raise UmapError(
@@ -28,10 +31,16 @@ def render_demo(
         )
 
     spec = MapSpec.model_validate_json(
-        resources.joinpath(f"{preset}.json").read_text(encoding="utf-8")
+        resources.joinpath(recipe_name).read_text(encoding="utf-8")
     )
+    if places_csv is not None:
+        from .places import read_places_csv
+
+        spec.places = read_places_csv(places_csv)
+    spec = MapSpec.model_validate(spec.model_dump())
     if theme is not None:
-        spec.style = StyleSpec.model_validate(spec.style.model_dump() | {"theme": theme})
+        defaults = {} if preset == "field-cards" else spec.style.model_dump()
+        spec.style = StyleSpec.model_validate(defaults | {"theme": theme})
     if spec.area.place:
         raise ValueError("Bundled demo recipes must use coordinates, not a place lookup")
 
@@ -39,7 +48,12 @@ def render_demo(
 
     # Keep extracted resources alive until the shared renderer has copied the
     # verified snapshot into the portable output project.
-    with as_file(resources.joinpath("snapshot.json")) as snapshot:
+    with ExitStack() as stack:
+        snapshot = stack.enter_context(as_file(resources.joinpath("snapshot.json")))
         spec.source.snapshot = str(snapshot.resolve())
         spec.source.offline = True
+        if preset == "field-cards" and places_csv is None:
+            for place in spec.places:
+                photo = stack.enter_context(as_file(resources.joinpath(place.reference_photo)))
+                place.reference_photo = str(photo.resolve())
         return render(spec, output_dir=output_dir)

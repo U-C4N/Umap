@@ -82,7 +82,7 @@ def main():
         atomic_json(snapshot, {"schema_version": "1", "dataset_id": digest(dataset.model_dump(mode="json")),
                                "dataset": dataset.model_dump(mode="json")})
         spec.source.snapshot = str(snapshot.resolve())
-    gallery = Image.new("RGB", (3*340, 2*502), "#E6E6E6")
+    gallery = Image.new("RGB", (3*340, 2*502), "#FFFFFF")
     draw = ImageDraw.Draw(gallery)
     font = ImageFont.truetype(str(FONT_PATH), 17)
     records = []

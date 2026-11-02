@@ -8,7 +8,7 @@ This server has no LLM provider dependency and needs no model API key.
 |---|---|
 | `find_map_location` | Query and optional country code → up to five persisted candidates |
 | `list_styles` | Six themes, paint/style fields, layouts, poster fields and the twelve-place limit |
-| `create_map` | Validated recipe plus optional candidate ID/request ID → map/revision/job IDs |
+| `create_map` | Recipe plus optional candidate ID, request ID and `places_csv` workspace path → map/revision/job IDs |
 | `inspect_map` | Current recipe, history, pinned data, jobs, artifacts and diagnostics |
 | `edit_map` | `map_id`, `base_revision`, targeted `changes` or `restore_revision` |
 | `refresh_map_data` | Optional editable `changes`; fetch the resulting extent and commit only if the base revision still matches |
@@ -18,6 +18,10 @@ This server has no LLM provider dependency and needs no model API key.
 | `get_artifact` | Metadata, local path and optional native PNG preview |
 
 ## Typical interaction
+
+For an A5 guide or camera cards, set `page.size="A5"`, `page.orientation="portrait"`
+and `page.layout="pocket"` or `"field_cards"`. CSV and reference photographs must
+be inside the workspace. Imported places and photographs are pinned for later edits.
 
 1. Find a location and choose the correct context. A raw `area.place` is not accepted
    by `create_map`; select a returned `candidate_id` or provide coordinates/bbox.

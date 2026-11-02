@@ -121,7 +121,8 @@
           "default": "A3",
           "enum": [
             "A3",
-            "A4"
+            "A4",
+            "A5"
           ],
           "title": "Size",
           "type": "string"
@@ -141,6 +142,16 @@
           "minimum": 72,
           "title": "Dpi",
           "type": "integer"
+        },
+        "png_resolution": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "4k",
+            "print"
+          ],
+          "title": "Png Resolution",
+          "type": "string"
         },
         "margin_mm": {
           "default": 10,
@@ -177,7 +188,9 @@
           "enum": [
             "classic",
             "poster",
-            "guide"
+            "guide",
+            "pocket",
+            "field_cards"
           ],
           "title": "Layout",
           "type": "string"
@@ -243,6 +256,40 @@
           ],
           "title": "Coordinates",
           "type": "array"
+        },
+        "note": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Note",
+          "type": "string"
+        },
+        "bearing": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bearing"
+        },
+        "reference_photo": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Photo"
         }
       },
       "required": [
